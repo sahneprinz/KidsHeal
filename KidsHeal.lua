@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.3
+  KidsHeal v1.3.4
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -34,6 +34,8 @@ local DEFAULTS = {
   slotCount = 4,
   iconsRight = false,
   showHealthText = true,
+  nameFontSize = 14,
+  hpFontSize = 14,
 }
 
 local DEFAULT_POS = { x = 40, y = -120 }
@@ -398,8 +400,10 @@ local function CreateMember(unitId, index)
 
   hb.nameText = hb:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   hb.nameText:SetPoint("TOPLEFT", hb, "TOPLEFT", 6, -4)
+  hb.nameText:SetFont(STANDARD_TEXT_FONT, s.nameFontSize, "OUTLINE")
   hb.healthText = hb:CreateFontString(nil, "OVERLAY", "GameFontHighlightLarge")
   hb.healthText:SetPoint("BOTTOMRIGHT", hb, "BOTTOMRIGHT", -6, 4)
+  hb.healthText:SetFont(STANDARD_TEXT_FONT, s.hpFontSize, "OUTLINE")
 
   local member = {
     unit = unitId, main = f,
@@ -623,18 +627,20 @@ local panel, optionsError = pcall(function()
   MakeSlider("Icongröße", "iconSize", 24, 80, 2, -180)
   MakeCheckbox("Icons rechts neben den Balken", "iconsRight", -240)
   MakeCheckbox("Lebenspunkte als Text anzeigen", "showHealthText", -280)
+  MakeSlider("Namensgröße", "nameFontSize", 8, 24, 1, -330)
+  MakeSlider("Zahlengröße (HP)", "hpFontSize", 8, 24, 1, -380)
 
   -- slot + spell dropdown --------------------------------------------
   local ddLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-  ddLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -330)
+  ddLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -430)
   ddLabel:SetText("Zauber per Liste wählen (Slot auswählen, dann Zauber):")
 
   local slotLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  slotLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 40, -360)
+  slotLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 40, -460)
   slotLabel:SetText("Slot:")
 
   local slotDD = CreateFrame("Frame", "KidsHealSlotDD", panel, "UIDropDownMenuTemplate")
-  slotDD:SetPoint("TOPLEFT", panel, "TOPLEFT", 80, -355)
+  slotDD:SetPoint("TOPLEFT", panel, "TOPLEFT", 80, -455)
   UIDropDownMenu_SetWidth(slotDD, 80)
   local curSlot = 1
   local function SlotDDText()
@@ -656,11 +662,11 @@ local panel, optionsError = pcall(function()
   SlotDDText()
 
   local spellLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  spellLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 220, -360)
+  spellLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 220, -460)
   spellLabel:SetText("Zauber:")
 
   local spellDD = CreateFrame("Frame", "KidsHealSpellDD", panel, "UIDropDownMenuTemplate")
-  spellDD:SetPoint("TOPLEFT", panel, "TOPLEFT", 280, -355)
+  spellDD:SetPoint("TOPLEFT", panel, "TOPLEFT", 280, -455)
   UIDropDownMenu_SetWidth(spellDD, 180)
   UIDropDownMenu_Initialize(spellDD, function(self, level)
     if level == 1 then
