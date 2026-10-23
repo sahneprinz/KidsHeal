@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.0
+  KidsHeal v1.3.1
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -15,7 +15,7 @@
   5. `/kidsheal clear <n>` removes the spell in slot n.
   6. Size of bars/icons and icon position: Interface Options -> AddOns -> KidsHeal.
 
-  TECH NOTE (v1.3.0): drop detection works on three independent paths:
+  TECH NOTE (v1.3.1): drop detection works on three independent paths:
   (1) OnReceiveDrag directly on the slot button,
   (2) cursor polling via GetCursorInfo() - the moment the cursor empties
       while the mouse is over a slot (found via GetMouseFocus and a
@@ -519,59 +519,69 @@ local function SyncHandleWidth()
 end
 
 -- ------------------------------------------------------------------ options panel
-local panel = CreateFrame("Frame", "KidsHealOptionsPanel", UIParent)
-panel.name = "KidsHeal"
+-- wrapped in pcall: if anything here fails on an older client, the addon
+-- must keep working (bars, clicks, slash command) instead of dying at load
+local panel, optionsError = pcall(function()
+  local panel = CreateFrame("Frame", "KidsHealOptionsPanel", UIParent)
+  panel.name = "KidsHeal"
 
-local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-title:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -16)
-title:SetText("KidsHeal Einstellungen")
+  local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+  title:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -16)
+  title:SetText("KidsHeal Einstellungen")
 
-local note = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-note:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -40)
-note:SetText("Änderungen greifen sofort außerhalb des Kampfes.")
+  local note = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  note:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -40)
+  note:SetText("Änderungen greifen sofort außerhalb des Kampfes.")
 
-local function MakeSlider(label, key, minV, maxV, step, y)
-  local sl = CreateFrame("Slider", "KidsHealSlider" .. key, panel, "OptionsSliderTemplate")
-  sl:SetPoint("TOPLEFT", panel, "TOPLEFT", 40, y)
-  sl:SetMinMaxValues(minV, maxV)
-  sl:SetValueStep(step)
-  sl:SetObeyStepOnDrag(true)
-  sl:SetValue(Settings()[key])
-  local textLbl = _G[sl:GetName() .. "Text"]
-  textLbl:SetText(label .. ": " .. Settings()[key])
-  _G[sl:GetName() .. "Low"]:SetText(tostring(minV))
-  _G[sl:GetName() .. "High"]:SetText(tostring(maxV))
-  sl:SetScript("OnValueChanged", function(_, v)
-    Settings()[key] = v
-    textLbl:SetText(label .. ": " .. v)
-  end)
-  sl:SetScript("OnMouseUp", function()
-    RequestRebuild()
-  end)
-  return sl
+  local function MakeSlider(label, key, minV, maxV, step, y)
+    local sl = CreateFrame("Slider", "KidsHealSlider" .. key, panel, "OptionsSliderTemplate")
+    sl:SetPoint("TOPLEFT", panel, "TOPLEFT", 40, y)
+    sl:SetMinMaxValues(minV, maxV)
+    sl:SetValueStep(step)
+    if sl.SetObeyStepOnDrag then sl:SetObeyStepOnDrag(true) end
+    sl:SetValue(Settings()[key])
+    local textLbl = _G[sl:GetName() .. "Text"]
+    textLbl:SetText(label .. ": " .. Settings()[key])
+    _G[sl:GetName() .. "Low"]:SetText(tostring(minV))
+    _G[sl:GetName() .. "High"]:SetText(tostring(maxV))
+    sl:SetScript("OnValueChanged", function(_, v)
+      Settings()[key] = v
+      textLbl:SetText(label .. ": " .. v)
+    end)
+    sl:SetScript("OnMouseUp", function()
+      RequestRebuild()
+    end)
+    return sl
+  end
+
+  local function MakeCheckbox(label, key, y)
+    local cb = CreateFrame("CheckButton", "KidsHealCheck" .. key, panel, "UICheckButtonTemplate")
+    cb:SetPoint("TOPLEFT", panel, "TOPLEFT", 40, y)
+    local txt = _G[cb:GetName() .. "Text"]
+    txt:SetText(label)
+    txt:SetFontObject("GameFontNormalLarge")
+    cb:SetChecked(Settings()[key])
+    cb:SetScript("OnClick", function(self)
+      Settings()[key] = self:GetChecked() or false
+      RequestRebuild()
+    end)
+    return cb
+  end
+
+  MakeSlider("Balkenbreite", "barWidth", 120, 400, 10, -80)
+  MakeSlider("Balkenhöhe", "barHeight", 24, 80, 2, -130)
+  MakeSlider("Icongröße", "iconSize", 24, 80, 2, -180)
+  MakeCheckbox("Icons rechts neben den Balken", "iconsRight", -240)
+  MakeCheckbox("Lebenspunkte als Text anzeigen", "showHealthText", -280)
+
+  InterfaceOptions_AddCategory(panel)
+  return panel
+end)
+
+if not panel then
+  print("|cff00ccffKidsHeal|r: Optionspanel konnte nicht erstellt werden (" ..
+    tostring(optionsError) .. "). /kidsheal funktioniert trotzdem.")
 end
-
-local function MakeCheckbox(label, key, y)
-  local cb = CreateFrame("CheckButton", "KidsHealCheck" .. key, panel, "UICheckButtonTemplate")
-  cb:SetPoint("TOPLEFT", panel, "TOPLEFT", 40, y)
-  local txt = _G[cb:GetName() .. "Text"]
-  txt:SetText(label)
-  txt:SetFontObject("GameFontNormalLarge")
-  cb:SetChecked(Settings()[key])
-  cb:SetScript("OnClick", function(self)
-    Settings()[key] = self:GetChecked() or false
-    RequestRebuild()
-  end)
-  return cb
-end
-
-MakeSlider("Balkenbreite", "barWidth", 120, 400, 10, -80)
-MakeSlider("Balkenhöhe", "barHeight", 24, 80, 2, -130)
-MakeSlider("Icongröße", "iconSize", 24, 80, 2, -180)
-MakeCheckbox("Icons rechts neben den Balken", "iconsRight", -240)
-MakeCheckbox("Lebenspunkte als Text anzeigen", "showHealthText", -280)
-
-InterfaceOptions_AddCategory(panel)
 
 -- ------------------------------------------------------------------ events
 container:SetScript("OnEvent", function(_, event, unit)
@@ -615,6 +625,7 @@ end)
 
 -- initial layout
 SyncHandleWidth()
+print("|cff00ccffKidsHeal|r v1.3.1 geladen. /kidsheal für Hilfe.")
 
 -- ------------------------------------------------------------------ slash
 SLASH_KIDSHEAL1 = "/kidsheal"
@@ -652,8 +663,12 @@ SlashCmdList["KIDSHEAL"] = function(msg)
     SyncHandleWidth()
     print("|cff00ccffKidsHeal|r neu aufgebaut.")
   elseif cmd == "options" or cmd == "config" then
-    InterfaceOptionsFrame_OpenToCategory(panel)
-    InterfaceOptionsFrame_OpenToCategory(panel)
+    if type(panel) == "table" and panel.name then
+      InterfaceOptionsFrame_OpenToCategory(panel)
+      InterfaceOptionsFrame_OpenToCategory(panel)
+    else
+      print("|cff00ccffKidsHeal|r: Optionspanel nicht verfügbar.")
+    end
   else
     print("|cff00ccffKidsHeal|r: reset | clear <slot> | test | refresh | debug | options")
   end

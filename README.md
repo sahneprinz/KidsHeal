@@ -1,4 +1,4 @@
-# KidsHeal v1.3.0
+# KidsHeal v1.3.1
 
 Health bars with big, clickable spell icons next to every group member —
 built for young healers who can't handle keybindings yet.
@@ -12,6 +12,10 @@ built for young healers who can't handle keybindings yet.
 - When a spell goes on cooldown, its icon shows the cooldown sweep **on every box at the same time**.
 - Icons turn grey when unusable (out of mana / on cooldown), dim slightly when out of range.
 - Each **character has its own slots and panel position**.
+
+## v1.3.1 changes
+- Options panel creation wrapped in pcall so a client API difference can no longer
+  kill the whole addon at load time (this was the likely cause of "no bars, no slash command").
 
 ## v1.3.0 changes
 - **Drag-and-drop fixed.** The old invisible catcher frame sat above the slots and
