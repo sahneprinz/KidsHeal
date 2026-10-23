@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.1
+  KidsHeal v1.3.2
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -15,7 +15,7 @@
   5. `/kidsheal clear <n>` removes the spell in slot n.
   6. Size of bars/icons and icon position: Interface Options -> AddOns -> KidsHeal.
 
-  TECH NOTE (v1.3.1): drop detection works on three independent paths:
+  TECH NOTE (v1.3.2): drop detection works on three independent paths:
   (1) OnReceiveDrag directly on the slot button,
   (2) cursor polling via GetCursorInfo() - the moment the cursor empties
       while the mouse is over a slot (found via GetMouseFocus and a
@@ -293,17 +293,36 @@ end
 local function CacheCursor()
   local kind, a, b = GetCursorInfo()
   if not kind then return nil end
+  dbg("cursor raw:", kind, a, b)
   if kind == "spell" then
+    -- GetCursorInfo returns (slot, bookType) or (bookType, slot) depending
+    -- on client version and pickup source; try both orders.
     local name, _, _, _, _, _, spellId = GetSpellBookItemInfo(a, b)
+    if not name then
+      name, _, _, _, _, _, spellId = GetSpellBookItemInfo(b, a)
+    end
+    if not name and type(a) == "number" then
+      -- some pickups hand us the spell id directly
+      local n2 = GetSpellInfo(a)
+      if n2 then
+        return { kind = "spell", id = a, name = n2 }
+      end
+    end
     if name then
       dbg("cursor: spell", name, spellId)
       return { kind = "spell", id = spellId, name = name }
     end
   elseif kind == "petaction" then
-    local name = GetSpellBookItemInfo(a, b)
-    if name then
-      dbg("cursor: petaction", name)
-      return { kind = "spell", id = nil, name = name }
+    -- pet actions have no spellbook entry; resolve via GetPetActionInfo
+    local _, petName = GetPetActionInfo(a)
+    if not petName and type(b) == "number" then
+      _, petName = GetPetActionInfo(b)
+    end
+    if not petName then petName = GetSpellBookItemInfo(a, b) end
+    if not petName then petName = GetSpellBookItemInfo(b, a) end
+    if petName then
+      dbg("cursor: petaction", petName)
+      return { kind = "spell", id = nil, name = petName }
     end
   elseif kind == "item" then
     dbg("cursor: item", a)
