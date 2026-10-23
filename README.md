@@ -48,7 +48,7 @@ built for young healers who can't handle keybindings yet.
 
 ## Install
 Unzip so you get `Interface/AddOns/KidsHeal/` containing `KidsHeal.toc` and `KidsHeal.lua`.
-Enable "Load out of date AddOns" and make sure KidsHeal is checked.
+Enable "Load out of date AddOns" and make sure KidsHeal is checked (the addon targets Legion launch, so it may show as out of date — that is fine).
 
 ## Commands
 - `/kidsheal reset` — reset panel position
