@@ -1,4 +1,4 @@
-# KidsHeal v1.3.8
+# KidsHeal v1.3.9
 
 Health bars with big, clickable spell icons next to every group member —
 built for young healers who can't handle keybindings yet.

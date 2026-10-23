@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.8
+  KidsHeal v1.3.9
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -310,7 +310,8 @@ local IMPORTANT_BUFFS = {
 local mySpellNames = nil
 local function BuildMySpellNames()
   mySpellNames = {}
-  for book = 1, 2 do
+  local bookTypes = { "spell", "pet" }
+  for _, book in ipairs(bookTypes) do
     local i = 1
     while true do
       local n = GetSpellBookItemInfo(i, book)
@@ -336,8 +337,8 @@ UpdateBuffs = function(member)
     local name, _, icon, _, _, duration, expires, _, _, _, spellId = UnitBuff(unit, i)
     if not name then break end
     if s.showAllBuffs
-        or (s.onlyMyBuffs and IsMyBuff(name))
-        or (not s.onlyMyBuffs and IMPORTANT_BUFFS[name]) then
+        or (not s.onlyMyBuffs and IMPORTANT_BUFFS[name])
+        or (s.onlyMyBuffs and IMPORTANT_BUFFS[name] and IsMyBuff(name)) then
       local f = member.buffFrames[idx]
       if f then
         f.buffName = name
@@ -764,7 +765,7 @@ local panel, optionsError = pcall(function()
   MakeSlider("Buffgröße", "buffSize", 12, 32, 2, -430)
   MakeSlider("Anzahl Icons", "slotCount", 1, 10, 1, -480)
   MakeCheckbox("Alle Buffs zeigen (statt nur HoTs/Schilde)", "showAllBuffs", -530)
-  MakeCheckbox("Nur meine Zauber zeigen (nur Buffs, die ich selbst habe)", "onlyMyBuffs", -570)
+  MakeCheckbox("Nur meine Zauber zeigen (nur HoTs/Schilde, die ich selbst gecastet habe)", "onlyMyBuffs", -570)
 
   -- slot + spell dropdown --------------------------------------------
   local ddLabel = child:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
@@ -858,7 +859,10 @@ end
 -- ------------------------------------------------------------------ events
 container:SetScript("OnEvent", function(_, event, unit)
   if event == "PLAYER_ENTERING_WORLD" or event == "GROUP_ROSTER_UPDATE" then
-    if event == "PLAYER_ENTERING_WORLD" then ApplyPosition() end
+    if event == "PLAYER_ENTERING_WORLD" then
+      ApplyPosition()
+      mySpellNames = nil
+    end
     RequestRebuild()
   elseif event == "PLAYER_REGEN_ENABLED" then
     if rosterDirty then
@@ -873,6 +877,10 @@ container:SetScript("OnEvent", function(_, event, unit)
   elseif event == "UNIT_AURA" then
     local m = memberFrames[unit]
     if m then UpdateBuffs(m) end
+  elseif event == "SPELLS_CHANGED" then
+    -- spellbook changed (talents, spec, level): rebuild my-spell cache
+    mySpellNames = nil
+    for _, m in pairs(memberFrames) do UpdateBuffs(m) end
   end
 end)
 container:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -882,6 +890,7 @@ container:RegisterEvent("UNIT_HEALTH")
 container:RegisterEvent("UNIT_MAXHEALTH")
 container:RegisterEvent("UNIT_NAME_UPDATE")
 container:RegisterEvent("UNIT_AURA")
+container:RegisterEvent("SPELLS_CHANGED")
 
 -- timers: 0.02s cursor polling, 0.25s cooldown/range refresh
 local fast = 0
