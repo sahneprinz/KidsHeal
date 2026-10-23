@@ -1,4 +1,4 @@
-## Interface: 70300
+## Interface: 70000
 ## Title: KidsHeal
 ## Notes: Big health bars with clickable spell icons for each group member - healing for young healers.
 ## Author: sahneprinz

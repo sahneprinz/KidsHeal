@@ -52,7 +52,7 @@ built for young healers who can't handle keybindings yet.
 
 ## Install
 Unzip so you get `Interface/AddOns/KidsHeal/` containing `KidsHeal.toc` and `KidsHeal.lua`.
-Enable "Load out of date AddOns" and make sure KidsHeal is checked (the TOC targets Legion 7.3.5 (Interface 70300)).
+Enable "Load out of date AddOns" and make sure KidsHeal is checked (the TOC uses Interface 70000 so all Legion-era clients (including modified server builds) accept it).
 
 ## Commands
 - `/kidsheal reset` — reset panel position
