@@ -47,6 +47,8 @@ built for young healers who can't handle keybindings yet.
 
 ## Managing slots
 - Drag a new spell/item onto a slot → overwrites it.
+- `/kidsheal set <slot> <Zauber>` → set a slot by spell name, e.g. `/kidsheal set 2 [Flash of Light]` (brackets optional).
+- Options panel → pick a slot and choose a spell from your whole spellbook via dropdown (also has "Slot leeren").
 - `/kidsheal clear <n>` → empties slot n (e.g. `/kidsheal clear 2`).
 - Sizes and icon placement: Interface Options → AddOns → KidsHeal.
 
@@ -57,6 +59,7 @@ Enable "Load out of date AddOns" and make sure KidsHeal is checked (the TOC targ
 ## Commands
 - `/kidsheal reset` — reset panel position
 - `/kidsheal clear <slot>` — empty a spell slot
+- `/kidsheal set <slot> <spell>` — set a slot by spell name (e.g. `/kidsheal set 2 [Flash of Light]`)
 - `/kidsheal test` — fill bars with random values to check the layout
 - `/kidsheal refresh` — rebuild the frames
 - `/kidsheal debug` — toggle debug output for the drag-and-drop detection
