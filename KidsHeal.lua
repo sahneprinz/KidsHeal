@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.2
+  KidsHeal v1.3.3
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -537,6 +537,37 @@ local function SyncHandleWidth()
   handle:SetSize(blockW, 26)
 end
 
+-- ------------------------------------------------------------------ spell picker (typed names)
+local function SpellIdByName(name)
+  if not name or name == "" then return nil end
+  local lower = name:lower()
+  for book = 1, 2 do
+    local i = 1
+    while true do
+      local n, _, _, _, _, _, spellId = GetSpellBookItemInfo(i, book)
+      if not n then break end
+      if n:lower() == lower then return spellId, n end
+      i = i + 1
+    end
+  end
+  local n2, _, _, _, _, _, id2 = GetSpellInfo(name)
+  if n2 then return id2, n2 end
+  return nil
+end
+
+local function SetSlotByName(slotIndex, name)
+  if InCombatLockdown() then
+    print("|cff00ccffKidsHeal|r: Nicht im Kampf möglich.")
+    return
+  end
+  local id, resolved = SpellIdByName(name)
+  if resolved then
+    AssignEntry(slotIndex, { kind = "spell", id = id, name = resolved })
+  else
+    print("|cff00ccffKidsHeal|r: Zauber \"" .. name .. "\" nicht gefunden (exakt so schreiben wie im Zauberbuch).")
+  end
+end
+
 -- ------------------------------------------------------------------ options panel
 -- wrapped in pcall: if anything here fails on an older client, the addon
 -- must keep working (bars, clicks, slash command) instead of dying at load
@@ -592,6 +623,86 @@ local panel, optionsError = pcall(function()
   MakeSlider("Icongröße", "iconSize", 24, 80, 2, -180)
   MakeCheckbox("Icons rechts neben den Balken", "iconsRight", -240)
   MakeCheckbox("Lebenspunkte als Text anzeigen", "showHealthText", -280)
+
+  -- slot + spell dropdown --------------------------------------------
+  local ddLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+  ddLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -330)
+  ddLabel:SetText("Zauber per Liste wählen (Slot auswählen, dann Zauber):")
+
+  local slotLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  slotLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 40, -360)
+  slotLabel:SetText("Slot:")
+
+  local slotDD = CreateFrame("Frame", "KidsHealSlotDD", panel, "UIDropDownMenuTemplate")
+  slotDD:SetPoint("TOPLEFT", panel, "TOPLEFT", 80, -355)
+  UIDropDownMenu_SetWidth(slotDD, 80)
+  local curSlot = 1
+  local function SlotDDText()
+    UIDropDownMenu_SetText(slotDD, "Slot " .. curSlot ..
+      (Profile().spells[curSlot] and " (belegt)" or ""))
+  end
+  UIDropDownMenu_Initialize(slotDD, function(self, level)
+    for i = 1, Settings().slotCount do
+      local info = UIDropDownMenu_CreateInfo()
+      info.text = "Slot " .. i
+      info.checked = (i == curSlot)
+      info.func = function()
+        curSlot = i
+        SlotDDText()
+      end
+      UIDropDownMenu_AddButton(info, level)
+    end
+  end)
+  SlotDDText()
+
+  local spellLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  spellLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 220, -360)
+  spellLabel:SetText("Zauber:")
+
+  local spellDD = CreateFrame("Frame", "KidsHealSpellDD", panel, "UIDropDownMenuTemplate")
+  spellDD:SetPoint("TOPLEFT", panel, "TOPLEFT", 280, -355)
+  UIDropDownMenu_SetWidth(spellDD, 180)
+  UIDropDownMenu_Initialize(spellDD, function(self, level)
+    if level == 1 then
+      local info = UIDropDownMenu_CreateInfo()
+      info.text = "— (Slot leeren) —"
+      info.notCheckable = true
+      info.func = function()
+        if not InCombatLockdown() then
+          Profile().spells[curSlot] = nil
+          ApplySlotToAll(curSlot)
+          print("|cff00ccffKidsHeal|r: Slot " .. curSlot .. " geleert.")
+        end
+        SlotDDText()
+      end
+      UIDropDownMenu_AddButton(info, level)
+      info = UIDropDownMenu_CreateInfo()
+      info.text = "Zauberbuch"
+      info.notCheckable = true
+      info.hasArrow = true
+      info.value = "BOOK"
+      UIDropDownMenu_AddButton(info, level)
+    elseif level == 2 and UIDROPDOWNMENU_MENU_VALUE == "BOOK" then
+      for book = 1, 2 do
+        local i = 1
+        while true do
+          local name, _, _, _, _, _, spellId = GetSpellBookItemInfo(i, book)
+          if not name then break end
+          if spellId and IsSpellKnown(spellId) then
+            local info = UIDropDownMenu_CreateInfo()
+            info.text = name
+            info.notCheckable = true
+            info.func = function()
+              SetSlotByName(curSlot, name)
+              SlotDDText()
+            end
+            UIDropDownMenu_AddButton(info, level)
+          end
+          i = i + 1
+        end
+      end
+    end
+  end)
 
   InterfaceOptions_AddCategory(panel)
   return panel
@@ -669,6 +780,15 @@ SlashCmdList["KIDSHEAL"] = function(msg)
     else
       print("|cff00ccffKidsHeal|r: /kidsheal clear 1.." .. Settings().slotCount)
     end
+  elseif cmd == "set" then
+    local n = tonumber(arg)
+    local name = msg:match("^set%s+%S+%s+(.+)")
+    if name then name = name:gsub("[%[%]]", "") end
+    if n and name and n >= 1 and n <= Settings().slotCount then
+      SetSlotByName(n, name)
+    else
+      print("|cff00ccffKidsHeal|r: /kidsheal set <slot> <Zaubername>, z.B. /kidsheal set 2 [Blitz des Lichts]")
+    end
   elseif cmd == "debug" then
     DEBUG = not DEBUG
     print("|cff00ccffKidsHeal|r: Debug " .. (DEBUG and "AN" or "AUS") ..
@@ -689,6 +809,6 @@ SlashCmdList["KIDSHEAL"] = function(msg)
       print("|cff00ccffKidsHeal|r: Optionspanel nicht verfügbar.")
     end
   else
-    print("|cff00ccffKidsHeal|r: reset | clear <slot> | test | refresh | debug | options")
+    print("|cff00ccffKidsHeal|r: reset | clear <slot> | set <slot> <Zauber> | test | refresh | debug | options")
   end
 end
