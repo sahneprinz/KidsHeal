@@ -1,0 +1,7 @@
+## Interface: 70300
+## Title: KidsHeal
+## Notes: Big health bars with clickable spell icons for each group member - healing for young healers.
+## Author: sahneprinz
+## Version: 1.2.0
+## SavedVariables: KidsHealDB
+## KidsHeal.lua
