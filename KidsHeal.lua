@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.4
+  KidsHeal v1.3.5
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -36,6 +36,9 @@ local DEFAULTS = {
   showHealthText = true,
   nameFontSize = 14,
   hpFontSize = 14,
+  buffSize = 18,
+  showAllBuffs = false,
+  maxBuffs = 10,
 }
 
 local DEFAULT_POS = { x = 40, y = -120 }
@@ -79,13 +82,14 @@ end
 local function BlockSize()
   local s = Settings()
   local blockW, blockH
+  local buffRow = s.buffSize + 6
   if s.iconsRight then
     local rowW = s.slotCount * s.iconSize + (s.slotCount - 1) * s.iconSpacing
     blockW = s.barWidth + 6 + rowW + 6
-    blockH = math.max(s.barHeight, s.iconSize) + 8
+    blockH = math.max(s.barHeight, s.iconSize) + buffRow + 8
   else
     blockW = s.barWidth
-    blockH = s.barHeight + s.iconSize + 6
+    blockH = s.barHeight + s.iconSize + 6 + buffRow
   end
   return blockW, blockH
 end
@@ -261,9 +265,81 @@ local function UpdateButton(member, i)
   end
 end
 
+local UpdateBuffs  -- defined below (buff row)
+
 local function UpdateMember(member)
   UpdateHealth(member)
   for i = 1, Settings().slotCount do UpdateButton(member, i) end
+  UpdateBuffs(member)
+end
+
+-- ------------------------------------------------------------------ buffs
+-- show the player's own Heal-over-Time / shield effects (and optionally
+-- all buffs) with remaining time under each health bar.
+local IMPORTANT_BUFFS = {
+  -- Priest
+  ["Renew"] = true, ["Erneuerung"] = true,
+  ["Power Word: Shield"] = true, ["Machtwort: Schild"] = true,
+  ["Prayer of Mending"] = true, ["Gebet der Besserung"] = true,
+  ["Pain Suppression"] = true, ["Schmerzunterdrückung"] = true,
+  -- Paladin
+  ["Divine Shield"] = true, ["Göttlicher Schild"] = true,
+  ["Beacon of Light"] = true, ["Siegel des Lichts"] = true,
+  ["Blessing of Sacrifice"] = true, ["Segen des Opfers"] = true,
+  ["Blessing of Protection"] = true, ["Segen des Schutzes"] = true,
+  ["Blessing of Spellwarding"] = true, ["Segen der Zauberschutzwehr"] = true,
+  -- Monk
+  ["Renewing Mist"] = true, ["Erneuernder Nebel"] = true,
+  ["Enveloping Mist"] = true, ["Einhüllender Nebel"] = true,
+  ["Life Cocoon"] = true, ["Lebenskokon"] = true,
+  -- Druid
+  ["Rejuvenation"] = true, ["Verjüngung"] = true,
+  ["Regrowth"] = true, ["Nachwachsen"] = true,
+  ["Wild Growth"] = true, ["Wildwuchs"] = true,
+  ["Ironbark"] = true, ["Eisenrinde"] = true,
+  -- Shaman
+  ["Riptide"] = true, ["Springflut"] = true,
+  ["Earth Shield"] = true, ["Erdschild"] = true,
+  ["Spirit Link"] = true, ["Geistführer-Verbindung"] = true,
+  -- Discipline Priest
+  ["Atonement"] = true, ["Sühne"] = true,
+  ["Grace"] = true, ["Gnade"] = true,
+}
+
+UpdateBuffs = function(member)
+  if not member.buffFrames then return end
+  local unit = member.unit
+  if not UnitExists(unit) then return end
+  local s = Settings()
+  local idx = 1
+  for i = 1, 40 do
+    local name, _, icon, _, _, duration, expires, _, _, _, spellId = UnitBuff(unit, i)
+    if not name then break end
+    if s.showAllBuffs or IMPORTANT_BUFFS[name] then
+      local f = member.buffFrames[idx]
+      if f then
+        f.buffName = name
+        f.buffIndex = i
+        f.icon:SetTexture(icon)
+        local remain = expires and (expires - GetTime()) or nil
+        if remain and remain > 0 then
+          if remain < 10 then
+            f.time:SetText(("%.1f"):format(remain))
+          else
+            f.time:SetText(("%d"):format(remain))
+          end
+        else
+          f.time:SetText("")
+        end
+        f:Show()
+        idx = idx + 1
+        if idx > s.maxBuffs then break end
+      end
+    end
+  end
+  for i = idx, s.maxBuffs do
+    if member.buffFrames[i] then member.buffFrames[i]:Hide() end
+  end
 end
 
 -- ------------------------------------------------------------------ drop detection
@@ -408,8 +484,34 @@ local function CreateMember(unitId, index)
   local member = {
     unit = unitId, main = f,
     healthBar = hb, nameText = hb.nameText, healthText = hb.healthText,
-    buttons = {},
+    buttons = {}, buffFrames = {},
   }
+
+  -- buff row under the health bar -----------------------------------
+  local maxB = s.maxBuffs
+  for bi = 1, maxB do
+    local bf = CreateFrame("Frame", nil, f)
+    bf:SetSize(s.buffSize, s.buffSize)
+    bf:SetPoint("TOPLEFT", f, "TOPLEFT", 4 + (bi - 1) * (s.buffSize + 2),
+      -(s.barHeight + 2))
+    bf.bg = bf:CreateTexture(nil, "BACKGROUND")
+    bf.bg:SetAllPoints()
+    bf.bg:SetColorTexture(0, 0, 0, 0.5)
+    bf.icon = bf:CreateTexture(nil, "ARTWORK")
+    bf.icon:SetAllPoints()
+    bf.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+    bf.time = bf:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
+    bf.time:SetPoint("BOTTOMRIGHT", bf, "BOTTOMRIGHT", 0, 0)
+    bf.time:SetFont(STANDARD_TEXT_FONT, math.max(s.buffSize * 0.45, 7), "OUTLINE")
+    bf:Hide()
+    bf:SetScript("OnEnter", function(self)
+      GameTooltip:SetOwner(self, "ANCHOR_TOP")
+      if self.buffName then GameTooltip:SetUnitBuff(unitId, self.buffIndex) end
+      GameTooltip:Show()
+    end)
+    bf:SetScript("OnLeave", function() GameTooltip:Hide() end)
+    member.buffFrames[bi] = bf
+  end
 
   local n = s.slotCount
   for i = 1, n do
@@ -629,18 +731,20 @@ local panel, optionsError = pcall(function()
   MakeCheckbox("Lebenspunkte als Text anzeigen", "showHealthText", -280)
   MakeSlider("Namensgröße", "nameFontSize", 8, 24, 1, -330)
   MakeSlider("Zahlengröße (HP)", "hpFontSize", 8, 24, 1, -380)
+  MakeSlider("Buffgröße", "buffSize", 12, 32, 2, -430)
+  MakeCheckbox("Alle Buffs zeigen (statt nur HoTs/Schilde)", "showAllBuffs", -490)
 
   -- slot + spell dropdown --------------------------------------------
   local ddLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-  ddLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -430)
+  ddLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -540)
   ddLabel:SetText("Zauber per Liste wählen (Slot auswählen, dann Zauber):")
 
   local slotLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  slotLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 40, -460)
+  slotLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 40, -570)
   slotLabel:SetText("Slot:")
 
   local slotDD = CreateFrame("Frame", "KidsHealSlotDD", panel, "UIDropDownMenuTemplate")
-  slotDD:SetPoint("TOPLEFT", panel, "TOPLEFT", 80, -455)
+  slotDD:SetPoint("TOPLEFT", panel, "TOPLEFT", 80, -565)
   UIDropDownMenu_SetWidth(slotDD, 80)
   local curSlot = 1
   local function SlotDDText()
@@ -662,11 +766,11 @@ local panel, optionsError = pcall(function()
   SlotDDText()
 
   local spellLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  spellLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 220, -460)
+  spellLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 220, -570)
   spellLabel:SetText("Zauber:")
 
   local spellDD = CreateFrame("Frame", "KidsHealSpellDD", panel, "UIDropDownMenuTemplate")
-  spellDD:SetPoint("TOPLEFT", panel, "TOPLEFT", 280, -455)
+  spellDD:SetPoint("TOPLEFT", panel, "TOPLEFT", 280, -565)
   UIDropDownMenu_SetWidth(spellDD, 180)
   UIDropDownMenu_Initialize(spellDD, function(self, level)
     if level == 1 then
@@ -734,6 +838,9 @@ container:SetScript("OnEvent", function(_, event, unit)
       or event == "UNIT_NAME_UPDATE" then
     local m = memberFrames[unit]
     if m then UpdateHealth(m) end
+  elseif event == "UNIT_AURA" then
+    local m = memberFrames[unit]
+    if m then UpdateBuffs(m) end
   end
 end)
 container:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -742,6 +849,7 @@ container:RegisterEvent("PLAYER_REGEN_ENABLED")
 container:RegisterEvent("UNIT_HEALTH")
 container:RegisterEvent("UNIT_MAXHEALTH")
 container:RegisterEvent("UNIT_NAME_UPDATE")
+container:RegisterEvent("UNIT_AURA")
 
 -- timers: 0.02s cursor polling, 0.25s cooldown/range refresh
 local fast = 0
