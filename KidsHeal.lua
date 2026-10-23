@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.7
+  KidsHeal v1.3.8
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -707,13 +707,21 @@ local panel, optionsError = pcall(function()
   title:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -16)
   title:SetText("KidsHeal Einstellungen")
 
-  local note = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
-  note:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -40)
+  -- scrollable area for all controls
+  local scroll = CreateFrame("ScrollFrame", "KidsHealOptionsScroll", panel, "UIPanelScrollFrameTemplate")
+  scroll:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -48)
+  scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -32, 16)
+  local child = CreateFrame("Frame", "KidsHealOptionsChild", scroll)
+  child:SetSize(1, 740)
+  scroll:SetScrollChild(child)
+
+  local note = child:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+  note:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -6)
   note:SetText("Änderungen greifen sofort außerhalb des Kampfes.")
 
   local function MakeSlider(label, key, minV, maxV, step, y)
-    local sl = CreateFrame("Slider", "KidsHealSlider" .. key, panel, "OptionsSliderTemplate")
-    sl:SetPoint("TOPLEFT", panel, "TOPLEFT", 40, y)
+    local sl = CreateFrame("Slider", "KidsHealSlider" .. key, child, "OptionsSliderTemplate")
+    sl:SetPoint("TOPLEFT", child, "TOPLEFT", 40, y)
     sl:SetMinMaxValues(minV, maxV)
     sl:SetValueStep(step)
     if sl.SetObeyStepOnDrag then sl:SetObeyStepOnDrag(true) end
@@ -733,8 +741,8 @@ local panel, optionsError = pcall(function()
   end
 
   local function MakeCheckbox(label, key, y)
-    local cb = CreateFrame("CheckButton", "KidsHealCheck" .. key, panel, "UICheckButtonTemplate")
-    cb:SetPoint("TOPLEFT", panel, "TOPLEFT", 40, y)
+    local cb = CreateFrame("CheckButton", "KidsHealCheck" .. key, child, "UICheckButtonTemplate")
+    cb:SetPoint("TOPLEFT", child, "TOPLEFT", 40, y)
     local txt = _G[cb:GetName() .. "Text"]
     txt:SetText(label)
     txt:SetFontObject("GameFontNormalLarge")
@@ -759,16 +767,16 @@ local panel, optionsError = pcall(function()
   MakeCheckbox("Nur meine Zauber zeigen (nur Buffs, die ich selbst habe)", "onlyMyBuffs", -570)
 
   -- slot + spell dropdown --------------------------------------------
-  local ddLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-  ddLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -620)
+  local ddLabel = child:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+  ddLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -606)
   ddLabel:SetText("Zauber per Liste wählen (Slot auswählen, dann Zauber):")
 
-  local slotLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  slotLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 40, -650)
+  local slotLabel = child:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  slotLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 40, -636)
   slotLabel:SetText("Slot:")
 
-  local slotDD = CreateFrame("Frame", "KidsHealSlotDD", panel, "UIDropDownMenuTemplate")
-  slotDD:SetPoint("TOPLEFT", panel, "TOPLEFT", 80, -645)
+  local slotDD = CreateFrame("Frame", "KidsHealSlotDD", child, "UIDropDownMenuTemplate")
+  slotDD:SetPoint("TOPLEFT", child, "TOPLEFT", 80, -631)
   UIDropDownMenu_SetWidth(slotDD, 80)
   local curSlot = 1
   local function SlotDDText()
@@ -789,12 +797,12 @@ local panel, optionsError = pcall(function()
   end)
   SlotDDText()
 
-  local spellLabel = panel:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  spellLabel:SetPoint("TOPLEFT", panel, "TOPLEFT", 220, -650)
+  local spellLabel = child:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  spellLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 220, -636)
   spellLabel:SetText("Zauber:")
 
-  local spellDD = CreateFrame("Frame", "KidsHealSpellDD", panel, "UIDropDownMenuTemplate")
-  spellDD:SetPoint("TOPLEFT", panel, "TOPLEFT", 280, -645)
+  local spellDD = CreateFrame("Frame", "KidsHealSpellDD", child, "UIDropDownMenuTemplate")
+  spellDD:SetPoint("TOPLEFT", child, "TOPLEFT", 280, -631)
   UIDropDownMenu_SetWidth(spellDD, 180)
   UIDropDownMenu_Initialize(spellDD, function(self, level)
     if level == 1 then
