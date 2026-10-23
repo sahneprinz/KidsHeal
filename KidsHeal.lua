@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.9
+  KidsHeal v1.3.10
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -308,23 +308,40 @@ local IMPORTANT_BUFFS = {
 }
 
 local mySpellNames = nil
+local mySpellIds = nil
 local function BuildMySpellNames()
   mySpellNames = {}
-  local bookTypes = { "spell", "pet" }
+  mySpellIds = {}
+  -- try both accepted forms of the bookType argument
+  local bookTypes = { "spell", "pet", 1, 2 }
+  local seen = {}
   for _, book in ipairs(bookTypes) do
     local i = 1
     while true do
-      local n = GetSpellBookItemInfo(i, book)
+      local n, _, _, _, _, _, spellId = GetSpellBookItemInfo(i, book)
       if not n then break end
-      mySpellNames[n] = true
+      if not seen[n .. tostring(book)] then
+        seen[n .. tostring(book)] = true
+        mySpellNames[n] = true
+        if spellId then mySpellIds[spellId] = true end
+      end
       i = i + 1
     end
   end
+  dbg("spellbook scan first name:", next(mySpellNames), "first id:", next(mySpellIds))
 end
 
-local function IsMyBuff(name)
+local function IsMyBuff(name, spellId)
   if not mySpellNames then BuildMySpellNames() end
-  return mySpellNames[name] == true
+  if name and mySpellNames[name] then return true end
+  if spellId and mySpellIds[spellId] then return true end
+  -- HoT auras often carry their own spell id which differs from the cast
+  -- spell id; resolve the buff name back to a spell id and check that too
+  if name then
+    local id = select(7, GetSpellInfo(name))
+    if id and mySpellIds[id] then return true end
+  end
+  return false
 end
 
 UpdateBuffs = function(member)
@@ -336,9 +353,14 @@ UpdateBuffs = function(member)
   for i = 1, 40 do
     local name, _, icon, _, _, duration, expires, _, _, _, spellId = UnitBuff(unit, i)
     if not name then break end
+    if s.onlyMyBuffs and not s.showAllBuffs then
+      dbg("buff:", name, "id:", spellId,
+        "inList:", IMPORTANT_BUFFS[name] and true or false,
+        "mine:", IsMyBuff(name, spellId))
+    end
     if s.showAllBuffs
         or (not s.onlyMyBuffs and IMPORTANT_BUFFS[name])
-        or (s.onlyMyBuffs and IMPORTANT_BUFFS[name] and IsMyBuff(name)) then
+        or (s.onlyMyBuffs and IMPORTANT_BUFFS[name] and IsMyBuff(name, spellId)) then
       local f = member.buffFrames[idx]
       if f then
         f.buffName = name
