@@ -1,4 +1,4 @@
-# KidsHeal v1.2.0
+# KidsHeal v1.3.0
 
 Health bars with big, clickable spell icons next to every group member —
 built for young healers who can't handle keybindings yet.
@@ -12,6 +12,19 @@ built for young healers who can't handle keybindings yet.
 - When a spell goes on cooldown, its icon shows the cooldown sweep **on every box at the same time**.
 - Icons turn grey when unusable (out of mana / on cooldown), dim slightly when out of range.
 - Each **character has its own slots and panel position**.
+
+## v1.3.0 changes
+- **Drag-and-drop fixed.** The old invisible catcher frame sat above the slots and
+  swallowed the drop before the addon ever saw it — it's gone. Drops are now caught
+  directly on the slot button (`OnReceiveDrag`) **and** by fast cursor polling (20x/sec)
+  that assigns the moment the cursor empties over a slot. Dragging spells off your
+  **action bars** now works too.
+- **Options panel** (Interface Options → AddOns → KidsHeal, or `/kidsheal options`):
+  - Bar width and height
+  - Icon size
+  - **Icons right of the bars** (toggle) — icons sit next to each bar instead of below it
+  - Health text on/off
+- Fixed cooldown/mana/range display for pet spells (they have no spell ID).
 
 ## v1.2.0 changes
 - Renamed to **KidsHeal** (folder, TOC, slash command `/kidsheal`, saved variables `KidsHealDB`).
@@ -31,6 +44,7 @@ built for young healers who can't handle keybindings yet.
 ## Managing slots
 - Drag a new spell/item onto a slot → overwrites it.
 - `/kidsheal clear <n>` → empties slot n (e.g. `/kidsheal clear 2`).
+- Sizes and icon placement: Interface Options → AddOns → KidsHeal.
 
 ## Install
 Unzip so you get `Interface/AddOns/KidsHeal/` containing `KidsHeal.toc` and `KidsHeal.lua`.
@@ -42,6 +56,7 @@ Enable "Load out of date AddOns" and make sure KidsHeal is checked.
 - `/kidsheal test` — fill bars with random values to check the layout
 - `/kidsheal refresh` — rebuild the frames
 - `/kidsheal debug` — toggle debug output for the drag-and-drop detection
+- `/kidsheal options` — open the options panel
 
 ## Notes
 - Works with any client language (spells/items stored by ID).

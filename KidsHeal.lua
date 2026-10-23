@@ -1,32 +1,38 @@
 --[[
-  KidsHeal v1.2.0
+  KidsHeal v1.3.0
   ==============
   Big health bars with clickable spell icons for each group member.
 
   HOW TO USE
   ----------
   1. Open your spellbook (or bags) and DRAG a spell onto one of the big
-     icon slots below a health bar. Every group member's bar gets it.
-     You can also drag usable ITEMS (e.g. a healing trinket) onto a slot.
+     icon slots below (or next to, see options) a health bar. Every group
+     member's bar gets it. You can also drag usable ITEMS (e.g. a healing
+     trinket) onto a slot.
   2. LEFT-CLICK an icon -> casts that spell on THAT player.
   3. The cooldown sweep shows on every bar at the same time.
   4. MOVE the panel: left-click and hold the handle strip on top.
   5. `/kidsheal clear <n>` removes the spell in slot n.
+  6. Size of bars/icons and icon position: Interface Options -> AddOns -> KidsHeal.
 
-  TECH NOTE (v1.2.0): spell drops are detected by polling GetCursorInfo()
-  (never CursorHasSpell, which is unreliable) while a pickup is held, and
-  assigned the moment the cursor empties while still hovering a slot.
-  A drop-catcher frame is also kept as a fast path. This works even if
-  OnReceiveDrag never fires.
+  TECH NOTE (v1.3.0): drop detection works on three independent paths:
+  (1) OnReceiveDrag directly on the slot button,
+  (2) cursor polling via GetCursorInfo() - the moment the cursor empties
+      while the mouse is over a slot (found via GetMouseFocus and a
+      MouseIsOver fallback), the cached entry is assigned,
+  (3) dragging from an ACTION BAR is now supported too (kind "action"
+      is resolved via GetActionInfo).
+  The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local CONFIG = {
+local DEFAULTS = {
   barWidth = 260,
   barHeight = 46,
-  buttonSize = 52,
+  iconSize = 52,
   spacing = 10,
   iconSpacing = 8,
   slotCount = 4,
+  iconsRight = false,
   showHealthText = true,
 }
 
@@ -56,16 +62,35 @@ local function Profile()
   local p = KidsHealDB[k]
   if type(p.spells) ~= "table" then p.spells = {} end
   if type(p.x) ~= "number" then p.x, p.y = DEFAULT_POS.x, DEFAULT_POS.y end
+  if type(p.settings) ~= "table" then p.settings = {} end
+  for key, val in pairs(DEFAULTS) do
+    if p.settings[key] == nil then p.settings[key] = val end
+  end
   return p
 end
 
+local function Settings()
+  return Profile().settings
+end
+
 -- ------------------------------------------------------------------ layout
-local function BlockHeight()
-  return CONFIG.barHeight + CONFIG.buttonSize + 6
+local function BlockSize()
+  local s = Settings()
+  local blockW, blockH
+  if s.iconsRight then
+    local rowW = s.slotCount * s.iconSize + (s.slotCount - 1) * s.iconSpacing
+    blockW = s.barWidth + 6 + rowW + 6
+    blockH = math.max(s.barHeight, s.iconSize) + 8
+  else
+    blockW = s.barWidth
+    blockH = s.barHeight + s.iconSize + 6
+  end
+  return blockW, blockH
 end
 
 local function PanelHeight(n)
-  return 30 + 8 + n * BlockHeight() + (n - 1) * CONFIG.spacing
+  local _, blockH = BlockSize()
+  return 30 + 8 + n * blockH + (n - 1) * Settings().spacing
 end
 
 local function ApplyPosition()
@@ -151,6 +176,10 @@ end
 
 local function AssignEntry(slotIndex, rawEntry)
   if not rawEntry or not slotIndex then return end
+  if InCombatLockdown() then
+    print("|cff00ccffKidsHeal|r: Nicht im Kampf möglich.")
+    return
+  end
   Profile().spells[slotIndex] = rawEntry
   ApplySlotToAll(slotIndex)
   local r = ResolveEntry(rawEntry)
@@ -173,8 +202,10 @@ local function UpdateHealth(member)
   local c = RAID_CLASS_COLORS[class] or { r = 0.3, g = 0.3, b = 0.3 }
   member.healthBar:SetStatusBarColor(c.r, c.g, c.b)
   member.nameText:SetText(UnitName(unit))
-  if CONFIG.showHealthText then
+  if Settings().showHealthText then
     member.healthText:SetText(("%d / %d"):format(hp, hpMax))
+  else
+    member.healthText:SetText("")
   end
 end
 
@@ -185,8 +216,9 @@ local function UpdateButton(member, i)
 
   local start, duration
   if e then
+    local ref = e.id or e.name
     if e.kind == "spell" then
-      start, duration = GetSpellCooldown(e.id)
+      start, duration = GetSpellCooldown(ref)
     else
       start, duration = GetItemCooldown(e.id)
     end
@@ -207,9 +239,10 @@ local function UpdateButton(member, i)
   if not e then return end
   local usable, noMana
   local inRange
+  local ref = e.id or e.name
   if e.kind == "spell" then
-    usable, noMana = IsUsableSpell(e.id)
-    inRange = IsSpellInRange(e.id, member.unit)
+    usable, noMana = IsUsableSpell(ref)
+    inRange = IsSpellInRange(ref, member.unit)
   else
     usable, noMana = IsUsableItem(e.id)
     inRange = IsItemInRange(e.id, member.unit)
@@ -228,23 +261,114 @@ end
 
 local function UpdateMember(member)
   UpdateHealth(member)
-  for i = 1, CONFIG.slotCount do UpdateButton(member, i) end
+  for i = 1, Settings().slotCount do UpdateButton(member, i) end
+end
+
+-- ------------------------------------------------------------------ drop detection
+-- Three independent paths (see header note). The catcher frame from older
+-- versions is gone; it sat in the TOOLTIP strata above the slot and
+-- swallowed the drop before the button ever saw it.
+local pendingEntry = nil   -- cached {kind,id,name} of what was held
+local pendingCursor = false
+
+local function SlotUnderMouse()
+  local focus = GetMouseFocus()
+  while focus do
+    if focus.isKidSlot then return focus end
+    focus = focus:GetParent()
+  end
+  -- fallback: geometric check
+  for _, m in pairs(memberFrames) do
+    for i = 1, Settings().slotCount do
+      local btn = m.buttons[i]
+      if btn and btn:IsShown() and MouseIsOver(btn) then
+        return btn
+      end
+    end
+  end
+  return nil
+end
+
+-- read what the cursor holds; returns an entry table or nil
+local function CacheCursor()
+  local kind, a, b = GetCursorInfo()
+  if not kind then return nil end
+  if kind == "spell" then
+    local name, _, _, _, _, _, spellId = GetSpellBookItemInfo(a, b)
+    if name then
+      dbg("cursor: spell", name, spellId)
+      return { kind = "spell", id = spellId, name = name }
+    end
+  elseif kind == "petaction" then
+    local name = GetSpellBookItemInfo(a, b)
+    if name then
+      dbg("cursor: petaction", name)
+      return { kind = "spell", id = nil, name = name }
+    end
+  elseif kind == "item" then
+    dbg("cursor: item", a)
+    return { kind = "item", id = a }
+  elseif kind == "action" then
+    -- dragged off an action bar slot
+    local aType, aId = GetActionInfo(a)
+    if aType == "spell" and aId then
+      local name, _, icon = GetSpellInfo(aId)
+      if name then
+        dbg("cursor: action->spell", name, aId)
+        return { kind = "spell", id = aId, name = name }
+      end
+    elseif aType == "item" and aId then
+      dbg("cursor: action->item", aId)
+      return { kind = "item", id = aId }
+    end
+  end
+  -- cursor holds something we can't use; keep previous state
+  return pendingEntry
+end
+
+local function PollCursor()
+  if InCombatLockdown() then
+    pendingEntry, pendingCursor = nil, false
+    return
+  end
+  local entry = CacheCursor()
+  if entry then
+    pendingEntry = entry
+    pendingCursor = true
+  elseif pendingCursor then
+    -- cursor just emptied: that was a drop; if it happened over one of
+    -- our slots, assign the cached entry to that slot
+    pendingCursor = false
+    if pendingEntry then
+      local btn = SlotUnderMouse()
+      if btn then
+        AssignEntry(btn.slotIndex, pendingEntry)
+      end
+      pendingEntry = nil
+    end
+  end
 end
 
 -- ------------------------------------------------------------------ build
 local function CreateMember(unitId, index)
+  local s = Settings()
+  local blockW, blockH = BlockSize()
   local f = CreateFrame("Frame", "KidsHealBox" .. index, container)
-  f:SetSize(CONFIG.barWidth, BlockHeight())
+  f:SetSize(blockW, blockH)
   f:SetPoint("TOPLEFT", container, "TOPLEFT", 0,
-             -(38 + (index - 1) * (BlockHeight() + CONFIG.spacing)))
+             -(38 + (index - 1) * (blockH + s.spacing)))
 
   f.bg = f:CreateTexture(nil, "BACKGROUND")
   f.bg:SetAllPoints()
   f.bg:SetColorTexture(0, 0, 0, 0.55)
 
   local hb = CreateFrame("StatusBar", nil, f)
-  hb:SetSize(CONFIG.barWidth - 8, CONFIG.barHeight - 8)
-  hb:SetPoint("TOP", f, "TOP", 0, -4)
+  hb:SetSize(s.barWidth - 8, s.barHeight - 8)
+  if s.iconsRight then
+    hb:SetPoint("LEFT", f, "LEFT", 4, 0)
+  else
+    hb:SetPoint("TOP", f, "TOP", 0, -4)
+  end
   hb:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
   hb:SetMinMaxValues(0, 1)
   hb:SetValue(1)
@@ -264,14 +388,22 @@ local function CreateMember(unitId, index)
     buttons = {},
   }
 
-  local n = CONFIG.slotCount
+  local n = s.slotCount
   for i = 1, n do
     local btn = CreateFrame("Button", nil, f, "SecureActionButtonTemplate")
-    local size = CONFIG.buttonSize
-    local xOff = -((n - 1) * (size + CONFIG.iconSpacing)) / 2
-      + (i - 1) * (size + CONFIG.iconSpacing)
-    btn:SetSize(size, size)
-    btn:SetPoint("TOP", f, "TOP", xOff, -(CONFIG.barHeight - 2))
+    btn:SetSize(s.iconSize, s.iconSize)
+    if s.iconsRight then
+      local xOff = s.barWidth + 6 + (i - 1) * (s.iconSize + s.iconSpacing)
+      local yOff = -((blockH - s.iconSize) / 2)
+      btn:SetPoint("TOPLEFT", f, "TOPLEFT", xOff, yOff)
+    else
+      local xOff = -((n - 1) * (s.iconSize + s.iconSpacing)) / 2
+        + (i - 1) * (s.iconSize + s.iconSpacing)
+      btn:SetPoint("TOP", f, "TOP", xOff, -(s.barHeight - 2))
+    end
+
+    btn.isKidSlot = true
+    btn.slotIndex = i
 
     btn.icon = btn:CreateTexture(nil, "ARTWORK")
     btn.icon:SetAllPoints()
@@ -284,12 +416,25 @@ local function CreateMember(unitId, index)
     btn:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
     btn:RegisterForClicks("LeftButtonDown")
 
+    -- drop path 1: the button itself receives the drag release
+    btn:SetScript("OnReceiveDrag", function(self)
+      if InCombatLockdown() then return end
+      if pendingEntry then
+        AssignEntry(self.slotIndex, pendingEntry)
+        pendingEntry, pendingCursor = nil, false
+      end
+    end)
+
     btn:SetScript("OnEnter", function(self)
       GameTooltip:SetOwner(self, "ANCHOR_TOP")
       local e = self.entry
       if e then
         if e.kind == "spell" then
-          GameTooltip:SetSpellByID(e.id)
+          if e.id then
+            GameTooltip:SetSpellByID(e.id)
+          else
+            GameTooltip:SetText(e.name)
+          end
         else
           GameTooltip:SetItemByID(e.id)
         end
@@ -330,8 +475,9 @@ local function Rebuild()
     memberFrames[unit] = CreateMember(unit, i)
   end
 
-  container:SetSize(CONFIG.barWidth, PanelHeight(#units))
-  for i = 1, CONFIG.slotCount do ApplySlotToAll(i) end
+  local blockW = BlockSize()
+  container:SetSize(blockW, PanelHeight(#units))
+  for i = 1, Settings().slotCount do ApplySlotToAll(i) end
   for _, m in pairs(memberFrames) do UpdateMember(m) end
 end
 
@@ -345,8 +491,8 @@ end
 
 -- ------------------------------------------------------------------ drag handle
 local handle = CreateFrame("Frame", "KidsHealHandle", container)
-handle:SetSize(CONFIG.barWidth, 26)
 handle:SetPoint("TOPLEFT", container, "TOPLEFT", 0, 0)
+handle:SetSize(260, 26)
 handle.tex = handle:CreateTexture(nil, "BACKGROUND")
 handle.tex:SetAllPoints()
 handle.tex:SetColorTexture(0, 0, 0, 0.7)
@@ -364,106 +510,68 @@ handle:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
 container:SetMovable(true)
 
--- ------------------------------------------------------------------ drop detection
--- Two mechanisms:
--- (A) while a pickup is held, we cache what the cursor holds and which slot
---     is hovered. The moment the cursor EMPTIES (drop happened anywhere),
---     we assign if the mouse is still over that slot. This works even if
---     no drop event ever reaches us.
--- (B) a catcher frame above the hovered slot handles OnReceiveDrag/OnMouseUp
---     as a fast path.
-local pendingEntry = nil   -- cached {kind,id,name} of what was held
-local pendingSlot = nil
-
--- find the slot button under the mouse; returns member, slotIndex, btn
-local function FindHoveredSlot()
-  for _, m in pairs(memberFrames) do
-    for i = 1, CONFIG.slotCount do
-      local btn = m.buttons[i]
-      if btn and btn:IsShown() and MouseIsOver(btn) then
-        return m, i, btn
-      end
-    end
-  end
-  return nil, nil, nil
+-- keep the handle as wide as the panel
+local function SyncHandleWidth()
+  local blockW = BlockSize()
+  handle:ClearAllPoints()
+  handle:SetPoint("TOPLEFT", container, "TOPLEFT", 0, 0)
+  handle:SetSize(blockW, 26)
 end
 
--- read and cache what the cursor holds; returns true if usable for us
-local function CacheCursor()
-  local kind, a, b = GetCursorInfo()
-  if kind == "spell" then
-    local name, _, _, _, _, _, spellId = GetSpellBookItemInfo(a, b)
-    if name and spellId then
-      pendingEntry = { kind = "spell", id = spellId, name = name }
-      dbg("cursor: spell", name, spellId)
-      return true
-    end
-  elseif kind == "petaction" then
-    local name = GetSpellBookItemInfo(a, b)
-    if name then
-      pendingEntry = { kind = "spell", id = nil, name = name }
-      dbg("cursor: petaction", name)
-      return true
-    end
-  elseif kind == "item" then
-    pendingEntry = { kind = "item", id = a }
-    dbg("cursor: item", a)
-    return true
-  end
-  return false
+-- ------------------------------------------------------------------ options panel
+local panel = CreateFrame("Frame", "KidsHealOptionsPanel", UIParent)
+panel.name = "KidsHeal"
+
+local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
+title:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -16)
+title:SetText("KidsHeal Einstellungen")
+
+local note = panel:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
+note:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -40)
+note:SetText("Änderungen greifen sofort außerhalb des Kampfes.")
+
+local function MakeSlider(label, key, minV, maxV, step, y)
+  local sl = CreateFrame("Slider", "KidsHealSlider" .. key, panel, "OptionsSliderTemplate")
+  sl:SetPoint("TOPLEFT", panel, "TOPLEFT", 40, y)
+  sl:SetMinMaxValues(minV, maxV)
+  sl:SetValueStep(step)
+  sl:SetObeyStepOnDrag(true)
+  sl:SetValue(Settings()[key])
+  local textLbl = _G[sl:GetName() .. "Text"]
+  textLbl:SetText(label .. ": " .. Settings()[key])
+  _G[sl:GetName() .. "Low"]:SetText(tostring(minV))
+  _G[sl:GetName() .. "High"]:SetText(tostring(maxV))
+  sl:SetScript("OnValueChanged", function(_, v)
+    Settings()[key] = v
+    textLbl:SetText(label .. ": " .. v)
+  end)
+  sl:SetScript("OnMouseUp", function()
+    RequestRebuild()
+  end)
+  return sl
 end
 
-local catcher = CreateFrame("Frame", "KidsHealDropCatcher", UIParent)
-catcher:EnableMouse(true)
-catcher:SetFrameStrata("TOOLTIP")
-catcher:Hide()
-
-catcher:SetScript("OnReceiveDrag", function()
-  if pendingSlot and pendingEntry then
-    AssignEntry(pendingSlot, pendingEntry)
-  end
-  pendingEntry, pendingSlot = nil, nil
-  catcher:Hide()
-end)
-catcher:SetScript("OnMouseUp", function()
-  if pendingSlot and pendingEntry then
-    AssignEntry(pendingSlot, pendingEntry)
-  end
-  pendingEntry, pendingSlot = nil, nil
-  catcher:Hide()
-end)
-
-local function PollCursor()
-  if InCombatLockdown() then
-    pendingEntry, pendingSlot = nil, nil
-    catcher:Hide()
-    return
-  end
-  if GetCursorInfo() then
-    if CacheCursor() then
-      local m, i, btn = FindHoveredSlot()
-      if btn then
-        pendingSlot = i
-        catcher:ClearAllPoints()
-        catcher:SetAllPoints(btn)
-        catcher:Show()
-      else
-        pendingSlot = nil
-        catcher:Hide()
-      end
-    end
-  else
-    -- cursor just emptied: if it emptied over our slot, that was a drop
-    if pendingSlot and pendingEntry then
-      local _, i, btn = FindHoveredSlot()
-      if btn and i == pendingSlot then
-        AssignEntry(pendingSlot, pendingEntry)
-      end
-    end
-    pendingEntry, pendingSlot = nil, nil
-    catcher:Hide()
-  end
+local function MakeCheckbox(label, key, y)
+  local cb = CreateFrame("CheckButton", "KidsHealCheck" .. key, panel, "UICheckButtonTemplate")
+  cb:SetPoint("TOPLEFT", panel, "TOPLEFT", 40, y)
+  local txt = _G[cb:GetName() .. "Text"]
+  txt:SetText(label)
+  txt:SetFontObject("GameFontNormalLarge")
+  cb:SetChecked(Settings()[key])
+  cb:SetScript("OnClick", function(self)
+    Settings()[key] = self:GetChecked() or false
+    RequestRebuild()
+  end)
+  return cb
 end
+
+MakeSlider("Balkenbreite", "barWidth", 120, 400, 10, -80)
+MakeSlider("Balkenhöhe", "barHeight", 24, 80, 2, -130)
+MakeSlider("Icongröße", "iconSize", 24, 80, 2, -180)
+MakeCheckbox("Icons rechts neben den Balken", "iconsRight", -240)
+MakeCheckbox("Lebenspunkte als Text anzeigen", "showHealthText", -280)
+
+InterfaceOptions_AddCategory(panel)
 
 -- ------------------------------------------------------------------ events
 container:SetScript("OnEvent", function(_, event, unit)
@@ -471,7 +579,11 @@ container:SetScript("OnEvent", function(_, event, unit)
     if event == "PLAYER_ENTERING_WORLD" then ApplyPosition() end
     RequestRebuild()
   elseif event == "PLAYER_REGEN_ENABLED" then
-    if rosterDirty then rosterDirty = false; Rebuild() end
+    if rosterDirty then
+      rosterDirty = false
+      Rebuild()
+      SyncHandleWidth()
+    end
   elseif event == "UNIT_HEALTH" or event == "UNIT_MAXHEALTH"
       or event == "UNIT_NAME_UPDATE" then
     local m = memberFrames[unit]
@@ -485,12 +597,12 @@ container:RegisterEvent("UNIT_HEALTH")
 container:RegisterEvent("UNIT_MAXHEALTH")
 container:RegisterEvent("UNIT_NAME_UPDATE")
 
--- timers: 0.05s cursor polling, 0.25s cooldown/range refresh
+-- timers: 0.02s cursor polling, 0.25s cooldown/range refresh
 local fast = 0
 local slow = 0
 container:SetScript("OnUpdate", function(_, e)
   fast = fast + e
-  if fast >= 0.05 then
+  if fast >= 0.02 then
     fast = 0
     PollCursor()
   end
@@ -500,6 +612,9 @@ container:SetScript("OnUpdate", function(_, e)
     for _, m in pairs(memberFrames) do UpdateMember(m) end
   end
 end)
+
+-- initial layout
+SyncHandleWidth()
 
 -- ------------------------------------------------------------------ slash
 SLASH_KIDSHEAL1 = "/kidsheal"
@@ -513,7 +628,7 @@ SlashCmdList["KIDSHEAL"] = function(msg)
     print("|cff00ccffKidsHeal|r: Position zurückgesetzt (oben links).")
   elseif cmd == "clear" then
     local n = tonumber(arg)
-    if n and n >= 1 and n <= CONFIG.slotCount then
+    if n and n >= 1 and n <= Settings().slotCount then
       if not InCombatLockdown() then
         Profile().spells[n] = nil
         ApplySlotToAll(n)
@@ -522,7 +637,7 @@ SlashCmdList["KIDSHEAL"] = function(msg)
         print("|cff00ccffKidsHeal|r: Nicht im Kampf möglich.")
       end
     else
-      print("|cff00ccffKidsHeal|r: /kidsheal clear 1.." .. CONFIG.slotCount)
+      print("|cff00ccffKidsHeal|r: /kidsheal clear 1.." .. Settings().slotCount)
     end
   elseif cmd == "debug" then
     DEBUG = not DEBUG
@@ -534,8 +649,12 @@ SlashCmdList["KIDSHEAL"] = function(msg)
     end
   elseif cmd == "refresh" then
     RequestRebuild()
+    SyncHandleWidth()
     print("|cff00ccffKidsHeal|r neu aufgebaut.")
+  elseif cmd == "options" or cmd == "config" then
+    InterfaceOptionsFrame_OpenToCategory(panel)
+    InterfaceOptionsFrame_OpenToCategory(panel)
   else
-    print("|cff00ccffKidsHeal|r: reset | clear <slot> | test | refresh | debug")
+    print("|cff00ccffKidsHeal|r: reset | clear <slot> | test | refresh | debug | options")
   end
 end
