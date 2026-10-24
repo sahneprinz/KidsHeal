@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.20
+  KidsHeal v1.3.21
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -553,6 +553,8 @@ local function CreateMember(unitId, index)
   local maxB = s.maxBuffs
   for bi = 1, maxB do
     local bf = CreateFrame("Frame", nil, f)
+    bf:SetFrameStrata("MEDIUM")
+    bf:SetFrameLevel(hb:GetFrameLevel() + 10)
     bf:SetSize(s.buffSize, s.buffSize)
     bf:SetPoint("BOTTOMLEFT", hb, "BOTTOMLEFT",
       2 + (bi - 1) * (s.buffSize + 2), s.buffPadding)
