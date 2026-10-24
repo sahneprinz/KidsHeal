@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.15
+  KidsHeal v1.3.16
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -296,6 +296,8 @@ local IMPORTANT_BUFFS = {
   ["Renewing Mist"] = true, ["Erneuernder Nebel"] = true,
   ["Enveloping Mist"] = true, ["Einhüllender Nebel"] = true,
   ["Life Cocoon"] = true, ["Lebenskokon"] = true,
+  ["Soothing Mist"] = true, ["Beruhigender Nebel"] = true,
+  ["Thunder Focus Tea"] = true, ["Donnerfokus-Tee"] = true,
   -- Druid
   ["Rejuvenation"] = true, ["Verjüngung"] = true,
   ["Regrowth"] = true, ["Nachwachsen"] = true,
