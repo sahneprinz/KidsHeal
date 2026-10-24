@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.11
+  KidsHeal v1.3.12
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -629,23 +629,11 @@ local function RequestRebuild()
 end
 
 -- ------------------------------------------------------------------ drag handle
+-- invisible drag strip on top of the panel (bars remain draggable too)
 local handle = CreateFrame("Frame", "KidsHealHandle", container)
 handle:SetPoint("TOPLEFT", container, "TOPLEFT", 0, 0)
-handle:SetSize(260, 26)
-handle.tex = handle:CreateTexture(nil, "BACKGROUND")
-handle.tex:SetAllPoints()
-handle.tex:SetColorTexture(0, 0, 0, 0.7)
-handle.text = handle:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
-handle.text:SetText("≡ KidsHeal  (hier festhalten und ziehen)")
-handle.text:SetPoint("CENTER", handle, "CENTER", 0, 0)
-handle.text:SetTextColor(0, 0.8, 1)
+handle:SetSize(260, 12)
 EnableDrag(handle)
-handle:SetScript("OnEnter", function(self)
-  GameTooltip:SetOwner(self, "ANCHOR_TOP")
-  GameTooltip:AddLine("Linke Maustaste gedrückt halten und ziehen", 1, 1, 1)
-  GameTooltip:Show()
-end)
-handle:SetScript("OnLeave", function() GameTooltip:Hide() end)
 
 container:SetMovable(true)
 
