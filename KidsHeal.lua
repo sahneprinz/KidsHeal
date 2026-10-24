@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.13
+  KidsHeal v1.3.14
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -87,14 +87,13 @@ local function BlockSize()
   local s = Settings()
   local blockW, blockH
   local pad = s.barPadding
-  local buffRow = s.buffSize + s.buffPadding
   local iconRowW = s.slotCount * s.iconSize + (s.slotCount - 1) * s.iconSpacing
   if s.iconsRight then
     blockW = s.barWidth + pad + iconRowW + pad
-    blockH = math.max(s.barHeight, s.iconSize) + buffRow + pad
+    blockH = math.max(s.barHeight, s.iconSize) + pad * 2
   else
     blockW = math.max(s.barWidth, iconRowW + pad * 2)
-    blockH = s.barHeight + buffRow + s.iconSize + pad * 2
+    blockH = s.barHeight + s.iconSize + pad * 2
   end
   return blockW, blockH
 end
@@ -510,9 +509,8 @@ local function CreateMember(unitId, index)
   for bi = 1, maxB do
     local bf = CreateFrame("Frame", nil, f)
     bf:SetSize(s.buffSize, s.buffSize)
-    bf:SetPoint("TOPLEFT", f, "TOPLEFT",
-      s.barPadding + (bi - 1) * (s.buffSize + 2),
-      -(s.barHeight + s.barPadding))
+    bf:SetPoint("BOTTOMLEFT", hb, "BOTTOMLEFT",
+      2 + (bi - 1) * (s.buffSize + 2), s.buffPadding)
     bf.bg = bf:CreateTexture(nil, "BACKGROUND")
     bf.bg:SetAllPoints()
     bf.bg:SetColorTexture(0, 0, 0, 0.5)
@@ -543,8 +541,7 @@ local function CreateMember(unitId, index)
     else
       local xOff = -((n - 1) * (s.iconSize + s.iconSpacing)) / 2
         + (i - 1) * (s.iconSize + s.iconSpacing)
-      btn:SetPoint("TOP", f, "TOP", xOff,
-        -(s.barHeight + s.buffPadding + s.buffSize + s.barPadding))
+      btn:SetPoint("TOP", f, "TOP", xOff, -(s.barHeight + s.barPadding))
     end
 
     btn.isKidSlot = true
@@ -750,7 +747,7 @@ local panel, optionsError = pcall(function()
   MakeSlider("Buffgröße", "buffSize", 12, 32, 2, -430)
   MakeSlider("Anzahl Icons", "slotCount", 1, 10, 1, -480)
   MakeSlider("Abstand zwischen Charakteren", "blockSpacing", 0, 30, 1, -530)
-  MakeSlider("Abstand Balken zu Buffs", "buffPadding", 0, 20, 1, -580)
+  MakeSlider("Buff-Überlappposition", "buffPadding", -10, 20, 1, -580)
   MakeSlider("Rahmenabstand (Padding)", "barPadding", 0, 16, 1, -630)
   MakeCheckbox("Alle Buffs zeigen (statt nur HoTs/Schilde)", "showAllBuffs", -700)
   MakeCheckbox("Nur meine Zauber zeigen (nur HoTs/Schilde, die ich selbst gecastet habe)", "onlyMyBuffs", -740)
