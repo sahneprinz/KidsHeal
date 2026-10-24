@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.16
+  KidsHeal v1.3.17
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -465,6 +465,36 @@ local function PollCursor()
   end
 end
 
+-- ------------------------------------------------------------------ spell pick
+-- "The next spell you cast lands in slot N": after clicking an empty slot,
+-- the next successful cast of the player is assigned to that slot.
+local pickSlot = nil
+
+local function StartSpellPick(slotIndex)
+  if InCombatLockdown() then
+    print("|cff00ccffKidsHeal|r: Nicht im Kampf möglich.")
+    return
+  end
+  pickSlot = slotIndex
+  print("|cff00ccffKidsHeal|r: Wirke jetzt einen Zauber - er landet in Slot " ..
+    slotIndex .. ". (Escape oder /kidsheal pick zum Abbrechen)")
+end
+
+local function HandleSpellPick(unit, spellName, _, spellId)
+  if not pickSlot then return end
+  if unit ~= "player" then return end
+  local slot = pickSlot
+  pickSlot = nil
+  local name = spellName or (spellId and select(1, GetSpellInfo(spellId)))
+  local id = spellId
+  if not id and name then id = select(7, GetSpellInfo(name)) end
+  if not name or not id then
+    print("|cff00ccffKidsHeal|r: Zauber nicht erkannt. Nutze /kidsheal set.")
+    return
+  end
+  AssignEntry(slot, { kind = "spell", id = id, name = name })
+end
+
 -- ------------------------------------------------------------------ build
 local function CreateMember(unitId, index)
   local s = Settings()
@@ -558,7 +588,18 @@ local function CreateMember(unitId, index)
     btn.cd:SetAllPoints()
 
     btn:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-    btn:RegisterForClicks("LeftButtonDown")
+    btn:RegisterForClicks("AnyUp")
+
+    -- empty slot: left-click = choose spell by casting it next
+    btn:SetScript("OnClick", function(self, mouseButton)
+      if self.entry then return end  -- filled slots cast as usual (secure)
+      if InCombatLockdown() then return end
+      if mouseButton == "LeftButton" then
+        StartSpellPick(self.slotIndex)
+      elseif mouseButton == "RightButton" then
+        GameTooltip:Hide()
+      end
+    end)
 
     -- drop path 1: the button itself receives the drag release
     btn:SetScript("OnReceiveDrag", function(self)
@@ -586,8 +627,8 @@ local function CreateMember(unitId, index)
           (UnitName(unitId) or unitId), 1, 1, 1)
       else
         GameTooltip:AddLine("Leerer Slot", 1, 1, 1)
-        GameTooltip:AddLine("Zieh einen Zauber hierher", 0.8, 0.8, 0.8)
-        GameTooltip:AddLine("(oder ein benutzbares Item, z.B. Trank/Trinket)", 0.8, 0.8, 0.8)
+        GameTooltip:AddLine("Klick: nächsten Zauber wirken, der dann hier landet", 0.8, 0.8, 0.8)
+        GameTooltip:AddLine("(oder /kidsheal set <slot> <Name>)", 0.8, 0.8, 0.8)
       end
       GameTooltip:Show()
     end)
@@ -844,7 +885,7 @@ if not panel then
 end
 
 -- ------------------------------------------------------------------ events
-container:SetScript("OnEvent", function(_, event, unit)
+container:SetScript("OnEvent", function(_, event, unit, a1, a2, a3, a4)
   if event == "PLAYER_ENTERING_WORLD" or event == "GROUP_ROSTER_UPDATE" then
     if event == "PLAYER_ENTERING_WORLD" then
       ApplyPosition()
@@ -863,6 +904,9 @@ container:SetScript("OnEvent", function(_, event, unit)
   elseif event == "UNIT_AURA" then
     local m = memberFrames[unit]
     if m then UpdateBuffs(m) end
+  elseif event == "UNIT_SPELLCAST_SUCCEEDED" then
+    -- args: unit, spellName, rank, lineID, spellId
+    HandleSpellPick(unit, a1, nil, a4)
   end
 end)
 container:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -872,6 +916,7 @@ container:RegisterEvent("UNIT_HEALTH")
 container:RegisterEvent("UNIT_MAXHEALTH")
 container:RegisterEvent("UNIT_NAME_UPDATE")
 container:RegisterEvent("UNIT_AURA")
+container:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
 
 -- timers: 0.02s cursor polling, 0.25s cooldown/range refresh
 local fast = 0
@@ -924,6 +969,14 @@ SlashCmdList["KIDSHEAL"] = function(msg)
       SetSlotByName(n, name)
     else
       print("|cff00ccffKidsHeal|r: /kidsheal set <slot> <Zaubername>, z.B. /kidsheal set 2 [Blitz des Lichts]")
+    end
+  elseif cmd == "pick" then
+    local n = tonumber(arg)
+    if n and n >= 1 and n <= Settings().slotCount then
+      StartSpellPick(n)
+    else
+      pickSlot = nil
+      print("|cff00ccffKidsHeal|r: Zauber-Auswahl abgebrochen.")
     end
   elseif cmd == "debug" then
     DEBUG = not DEBUG
