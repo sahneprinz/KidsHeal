@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.22
+  KidsHeal v1.3.23
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -796,7 +796,12 @@ local panel, optionsError = pcall(function()
     _G[sl:GetName() .. "Low"]:SetText(tostring(minV))
     _G[sl:GetName() .. "High"]:SetText(tostring(maxV))
     if key == "slotCount" then
-      -- per-spec: slider shows/edits the current specialization's count
+      -- per-spec: slider shows/edits the current specialization's count.
+      -- the default template centers the label over the slider, which would
+      -- overflow the panel edge with this long text - left-anchor it instead.
+      textLbl:ClearAllPoints()
+      textLbl:SetPoint("BOTTOMLEFT", sl, "TOPLEFT", 0, 3)
+      textLbl:SetJustifyH("LEFT")
       sl:SetValue(SlotCount())
       textLbl:SetText(label .. ": " .. SlotCount())
       sl:SetScript("OnValueChanged", function(_, v)
