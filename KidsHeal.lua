@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.18
+  KidsHeal v1.3.19
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -42,6 +42,7 @@ local DEFAULTS = {
   blockSpacing = 10,
   showAllBuffs = false,
   onlyMyBuffs = false,
+  showFocus = true,
   maxBuffs = 10,
 }
 
@@ -656,6 +657,7 @@ local function Rebuild()
 
   local units = { "player" }
   for i = 1, 4 do units[#units + 1] = "party" .. i end
+  if Settings().showFocus then units[#units + 1] = "focus" end
   for i, unit in ipairs(units) do
     memberFrames[unit] = CreateMember(unit, i)
   end
@@ -794,6 +796,7 @@ local panel, optionsError = pcall(function()
   MakeSlider("Rahmenabstand (Padding)", "barPadding", 0, 16, 1, -630)
   MakeCheckbox("Alle Buffs zeigen (statt nur HoTs/Schilde)", "showAllBuffs", -700)
   MakeCheckbox("Nur meine Zauber zeigen (nur HoTs/Schilde, die ich selbst gecastet habe)", "onlyMyBuffs", -740)
+  MakeCheckbox("Fokus-Ziel als eigene Leiste zeigen", "showFocus", -780)
 
   -- slot + spell dropdown --------------------------------------------
   local ddLabel = child:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
@@ -886,11 +889,18 @@ end
 
 -- ------------------------------------------------------------------ events
 container:SetScript("OnEvent", function(_, event, unit, a1, a2, a3, a4)
-  if event == "PLAYER_ENTERING_WORLD" or event == "GROUP_ROSTER_UPDATE" then
+  if event == "PLAYER_ENTERING_WORLD" or event == "GROUP_ROSTER_UPDATE"
+      or event == "PLAYER_FOCUS_CHANGED" then
     if event == "PLAYER_ENTERING_WORLD" then
       ApplyPosition()
     end
-    RequestRebuild()
+    if event == "PLAYER_FOCUS_CHANGED" then
+      -- just refresh visibility/values; the frames exist already
+      local m = memberFrames["focus"]
+      if m then UpdateMember(m) end
+    else
+      RequestRebuild()
+    end
   elseif event == "PLAYER_REGEN_ENABLED" then
     if rosterDirty then
       rosterDirty = false
@@ -917,6 +927,7 @@ container:RegisterEvent("UNIT_MAXHEALTH")
 container:RegisterEvent("UNIT_NAME_UPDATE")
 container:RegisterEvent("UNIT_AURA")
 container:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
+container:RegisterEvent("PLAYER_FOCUS_CHANGED")
 
 -- timers: 0.02s cursor polling, 0.25s cooldown/range refresh
 local fast = 0
