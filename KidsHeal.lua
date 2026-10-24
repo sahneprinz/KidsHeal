@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.17
+  KidsHeal v1.3.18
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -588,16 +588,16 @@ local function CreateMember(unitId, index)
     btn.cd:SetAllPoints()
 
     btn:SetHighlightTexture("Interface\\Buttons\\ButtonHilight-Square", "ADD")
-    btn:RegisterForClicks("AnyUp")
+    btn:RegisterForClicks("LeftButtonDown")
 
-    -- empty slot: left-click = choose spell by casting it next
-    btn:SetScript("OnClick", function(self, mouseButton)
+    -- empty slot: left-click starts pick mode. IMPORTANT: never SetScript
+    -- ("OnClick") here - that would replace the secure cast handler.
+    -- PreClick runs before it and leaves filled slots untouched.
+    btn:SetScript("PreClick", function(self, mouseButton)
       if self.entry then return end  -- filled slots cast as usual (secure)
       if InCombatLockdown() then return end
       if mouseButton == "LeftButton" then
         StartSpellPick(self.slotIndex)
-      elseif mouseButton == "RightButton" then
-        GameTooltip:Hide()
       end
     end)
 
