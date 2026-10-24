@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.10
+  KidsHeal v1.3.11
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -307,60 +307,29 @@ local IMPORTANT_BUFFS = {
   ["Grace"] = true, ["Gnade"] = true,
 }
 
-local mySpellNames = nil
-local mySpellIds = nil
-local function BuildMySpellNames()
-  mySpellNames = {}
-  mySpellIds = {}
-  -- try both accepted forms of the bookType argument
-  local bookTypes = { "spell", "pet", 1, 2 }
-  local seen = {}
-  for _, book in ipairs(bookTypes) do
-    local i = 1
-    while true do
-      local n, _, _, _, _, _, spellId = GetSpellBookItemInfo(i, book)
-      if not n then break end
-      if not seen[n .. tostring(book)] then
-        seen[n .. tostring(book)] = true
-        mySpellNames[n] = true
-        if spellId then mySpellIds[spellId] = true end
-      end
-      i = i + 1
-    end
-  end
-  dbg("spellbook scan first name:", next(mySpellNames), "first id:", next(mySpellIds))
-end
-
-local function IsMyBuff(name, spellId)
-  if not mySpellNames then BuildMySpellNames() end
-  if name and mySpellNames[name] then return true end
-  if spellId and mySpellIds[spellId] then return true end
-  -- HoT auras often carry their own spell id which differs from the cast
-  -- spell id; resolve the buff name back to a spell id and check that too
-  if name then
-    local id = select(7, GetSpellInfo(name))
-    if id and mySpellIds[id] then return true end
-  end
-  return false
-end
-
 UpdateBuffs = function(member)
   if not member.buffFrames then return end
   local unit = member.unit
   if not UnitExists(unit) then return end
   local s = Settings()
   local idx = 1
+  local filterMine = s.onlyMyBuffs and not s.showAllBuffs
+  -- with "Nur meine Zauber": ask the client directly whose buff it is
+  -- (UnitBuff's third argument "PLAYER" returns only buffs cast by me)
   for i = 1, 40 do
-    local name, _, icon, _, _, duration, expires, _, _, _, spellId = UnitBuff(unit, i)
+    local name, _, icon, _, _, duration, expires, _, _, _, spellId
+    if filterMine then
+      name, _, icon, _, _, duration, expires, _, _, _, spellId = UnitBuff(unit, i, "PLAYER")
+    else
+      name, _, icon, _, _, duration, expires, _, _, _, spellId = UnitBuff(unit, i)
+    end
     if not name then break end
-    if s.onlyMyBuffs and not s.showAllBuffs then
-      dbg("buff:", name, "id:", spellId,
-        "inList:", IMPORTANT_BUFFS[name] and true or false,
-        "mine:", IsMyBuff(name, spellId))
+    if filterMine then
+      dbg("buff:", name, "id:", spellId, "inList:", IMPORTANT_BUFFS[name] and true or false)
     end
     if s.showAllBuffs
-        or (not s.onlyMyBuffs and IMPORTANT_BUFFS[name])
-        or (s.onlyMyBuffs and IMPORTANT_BUFFS[name] and IsMyBuff(name, spellId)) then
+        or (not filterMine and IMPORTANT_BUFFS[name])
+        or (filterMine and IMPORTANT_BUFFS[name]) then
       local f = member.buffFrames[idx]
       if f then
         f.buffName = name
@@ -883,7 +852,6 @@ container:SetScript("OnEvent", function(_, event, unit)
   if event == "PLAYER_ENTERING_WORLD" or event == "GROUP_ROSTER_UPDATE" then
     if event == "PLAYER_ENTERING_WORLD" then
       ApplyPosition()
-      mySpellNames = nil
     end
     RequestRebuild()
   elseif event == "PLAYER_REGEN_ENABLED" then
@@ -899,10 +867,6 @@ container:SetScript("OnEvent", function(_, event, unit)
   elseif event == "UNIT_AURA" then
     local m = memberFrames[unit]
     if m then UpdateBuffs(m) end
-  elseif event == "SPELLS_CHANGED" then
-    -- spellbook changed (talents, spec, level): rebuild my-spell cache
-    mySpellNames = nil
-    for _, m in pairs(memberFrames) do UpdateBuffs(m) end
   end
 end)
 container:RegisterEvent("PLAYER_ENTERING_WORLD")
@@ -912,7 +876,6 @@ container:RegisterEvent("UNIT_HEALTH")
 container:RegisterEvent("UNIT_MAXHEALTH")
 container:RegisterEvent("UNIT_NAME_UPDATE")
 container:RegisterEvent("UNIT_AURA")
-container:RegisterEvent("SPELLS_CHANGED")
 
 -- timers: 0.02s cursor polling, 0.25s cooldown/range refresh
 local fast = 0
