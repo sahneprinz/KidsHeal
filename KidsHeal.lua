@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.21
+  KidsHeal v1.3.22
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -95,12 +95,34 @@ local function SpellSlots()
   return p.specSpells[spec]
 end
 
+local function SlotCount()
+  local p = Profile()
+  local spec = GetSpecialization() or 1
+  if type(p.specSlotCount) ~= "table" then
+    -- first read after update: take over the previous global setting
+    p.specSlotCount = { }
+    for i = 1, 4 do p.specSlotCount[i] = p.settings.slotCount end
+  end
+  local n = p.specSlotCount[spec]
+  if type(n) ~= "number" or n < 1 then n = 1 end
+  if n > 10 then n = 10 end
+  return math.floor(n)
+end
+
+local function SetSlotCount(n)
+  local p = Profile()
+  local spec = GetSpecialization() or 1
+  if type(p.specSlotCount) ~= "table" then p.specSlotCount = {} end
+  p.specSlotCount[spec] = math.floor(n)
+end
+
 -- ------------------------------------------------------------------ layout
 local function BlockSize()
   local s = Settings()
   local blockW, blockH
   local pad = s.barPadding
-  local iconRowW = s.slotCount * s.iconSize + (s.slotCount - 1) * s.iconSpacing
+  local n = SlotCount()
+  local iconRowW = n * s.iconSize + (n - 1) * s.iconSpacing
   if s.iconsRight then
     blockW = s.barWidth + pad + iconRowW + pad
     blockH = math.max(s.barHeight, s.iconSize) + pad * 2
@@ -286,7 +308,7 @@ local UpdateBuffs  -- defined below (buff row)
 
 local function UpdateMember(member)
   UpdateHealth(member)
-  for i = 1, Settings().slotCount do UpdateButton(member, i) end
+  for i = 1, SlotCount() do UpdateButton(member, i) end
   UpdateBuffs(member)
 end
 
@@ -389,7 +411,7 @@ local function SlotUnderMouse()
   end
   -- fallback: geometric check
   for _, m in pairs(memberFrames) do
-    for i = 1, Settings().slotCount do
+    for i = 1, SlotCount() do
       local btn = m.buttons[i]
       if btn and btn:IsShown() and MouseIsOver(btn) then
         return btn
@@ -577,7 +599,7 @@ local function CreateMember(unitId, index)
     member.buffFrames[bi] = bf
   end
 
-  local n = s.slotCount
+  local n = SlotCount()
   for i = 1, n do
     local btn = CreateFrame("Button", nil, f, "SecureActionButtonTemplate")
     btn:SetSize(s.iconSize, s.iconSize)
@@ -678,7 +700,7 @@ local function Rebuild()
 
   local blockW = BlockSize()
   container:SetSize(blockW, PanelHeight(#units))
-  for i = 1, Settings().slotCount do ApplySlotToAll(i) end
+  for i = 1, SlotCount() do ApplySlotToAll(i) end
   for _, m in pairs(memberFrames) do UpdateMember(m) end
 end
 
@@ -741,6 +763,7 @@ end
 -- ------------------------------------------------------------------ options panel
 -- wrapped in pcall: if anything here fails on an older client, the addon
 -- must keep working (bars, clicks, slash command) instead of dying at load
+local slotCountSlider = nil
 local panel, optionsError = pcall(function()
   local panel = CreateFrame("Frame", "KidsHealOptionsPanel", UIParent)
   panel.name = "KidsHeal"
@@ -772,10 +795,20 @@ local panel, optionsError = pcall(function()
     textLbl:SetText(label .. ": " .. Settings()[key])
     _G[sl:GetName() .. "Low"]:SetText(tostring(minV))
     _G[sl:GetName() .. "High"]:SetText(tostring(maxV))
-    sl:SetScript("OnValueChanged", function(_, v)
-      Settings()[key] = v
-      textLbl:SetText(label .. ": " .. v)
-    end)
+    if key == "slotCount" then
+      -- per-spec: slider shows/edits the current specialization's count
+      sl:SetValue(SlotCount())
+      textLbl:SetText(label .. ": " .. SlotCount())
+      sl:SetScript("OnValueChanged", function(_, v)
+        SetSlotCount(v)
+        textLbl:SetText(label .. ": " .. math.floor(v))
+      end)
+    else
+      sl:SetScript("OnValueChanged", function(_, v)
+        Settings()[key] = v
+        textLbl:SetText(label .. ": " .. v)
+      end)
+    end
     sl:SetScript("OnMouseUp", function()
       RequestRebuild()
     end)
@@ -804,7 +837,7 @@ local panel, optionsError = pcall(function()
   MakeSlider("Namensgröße", "nameFontSize", 8, 24, 1, -330)
   MakeSlider("Zahlengröße (HP)", "hpFontSize", 8, 24, 1, -380)
   MakeSlider("Buffgröße", "buffSize", 12, 32, 2, -430)
-  MakeSlider("Anzahl Icons", "slotCount", 1, 10, 1, -480)
+  slotCountSlider = MakeSlider("Anzahl Icons (nur diese Spezialisierung)", "slotCount", 1, 10, 1, -480)
   MakeSlider("Abstand zwischen Charakteren", "blockSpacing", 0, 30, 1, -530)
   MakeSlider("Buff-Überlappposition", "buffPadding", -10, 20, 1, -580)
   MakeSlider("Rahmenabstand (Padding)", "barPadding", 0, 16, 1, -630)
@@ -904,8 +937,13 @@ end
 -- ------------------------------------------------------------------ events
 container:SetScript("OnEvent", function(_, event, unit, a1, a2, a3, a4)
   if event == "PLAYER_SPECIALIZATION_CHANGED" then
-    -- spell slots are saved per spec: rebuild with the new spec's spells
+    -- spell slots AND icon count are saved per spec: rebuild + re-sync slider
     RequestRebuild()
+    if type(slotCountSlider) == "table" then
+      slotCountSlider:SetValue(SlotCount())
+      local textLbl = _G[slotCountSlider:GetName() .. "Text"]
+      textLbl:SetText("Anzahl Icons (nur diese Spezialisierung): " .. SlotCount())
+    end
   elseif event == "PLAYER_ENTERING_WORLD" or event == "GROUP_ROSTER_UPDATE"
       or event == "PLAYER_FOCUS_CHANGED" then
     if event == "PLAYER_ENTERING_WORLD" then
@@ -979,7 +1017,7 @@ SlashCmdList["KIDSHEAL"] = function(msg)
     print("|cff00ccffKidsHeal|r: Position zurückgesetzt (oben links).")
   elseif cmd == "clear" then
     local n = tonumber(arg)
-    if n and n >= 1 and n <= Settings().slotCount then
+    if n and n >= 1 and n <= SlotCount() then
       if not InCombatLockdown() then
         SpellSlots()[n] = nil
         ApplySlotToAll(n)
@@ -988,20 +1026,20 @@ SlashCmdList["KIDSHEAL"] = function(msg)
         print("|cff00ccffKidsHeal|r: Nicht im Kampf möglich.")
       end
     else
-      print("|cff00ccffKidsHeal|r: /kidsheal clear 1.." .. Settings().slotCount)
+      print("|cff00ccffKidsHeal|r: /kidsheal clear 1.." .. SlotCount())
     end
   elseif cmd == "set" then
     local n = tonumber(arg)
     local name = msg:match("^set%s+%S+%s+(.+)")
     if name then name = name:gsub("[%[%]]", "") end
-    if n and name and n >= 1 and n <= Settings().slotCount then
+    if n and name and n >= 1 and n <= SlotCount() then
       SetSlotByName(n, name)
     else
       print("|cff00ccffKidsHeal|r: /kidsheal set <slot> <Zaubername>, z.B. /kidsheal set 2 [Blitz des Lichts]")
     end
   elseif cmd == "pick" then
     local n = tonumber(arg)
-    if n and n >= 1 and n <= Settings().slotCount then
+    if n and n >= 1 and n <= SlotCount() then
       StartSpellPick(n)
     else
       pickSlot = nil
