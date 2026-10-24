@@ -4,7 +4,7 @@
 
 Where addons like Healbot let you heal a whole raid by replacing buttons with key and mouse bindings, KidsHeal takes the opposite approach: it puts all your healing actions right next to the potential target, making healing very clear and very simple. It is **not recommendable for raids** — it's just for kids, or for people who want to heal in an almost relaxing kind of way.
 
-KidsHeal follows the old washing machine approach: *"Even a child can do this!"*
+KidsHeal follows the old washing machine salesman's approach: *"Even a child can do this!"*
 
 ## What it does
 - One box per group member (you + party + optional focus target): class-colored health bar with the name.
