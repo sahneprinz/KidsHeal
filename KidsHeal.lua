@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.12
+  KidsHeal v1.3.13
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -37,6 +37,9 @@ local DEFAULTS = {
   nameFontSize = 14,
   hpFontSize = 14,
   buffSize = 18,
+  barPadding = 4,
+  buffPadding = 6,
+  blockSpacing = 10,
   showAllBuffs = false,
   onlyMyBuffs = false,
   maxBuffs = 10,
@@ -83,21 +86,22 @@ end
 local function BlockSize()
   local s = Settings()
   local blockW, blockH
-  local buffRow = s.buffSize + 6
+  local pad = s.barPadding
+  local buffRow = s.buffSize + s.buffPadding
   local iconRowW = s.slotCount * s.iconSize + (s.slotCount - 1) * s.iconSpacing
   if s.iconsRight then
-    blockW = s.barWidth + 6 + iconRowW + 6
-    blockH = math.max(s.barHeight, s.iconSize) + buffRow + 8
+    blockW = s.barWidth + pad + iconRowW + pad
+    blockH = math.max(s.barHeight, s.iconSize) + buffRow + pad
   else
-    blockW = math.max(s.barWidth, iconRowW + 8)
-    blockH = s.barHeight + buffRow + s.iconSize + 8
+    blockW = math.max(s.barWidth, iconRowW + pad * 2)
+    blockH = s.barHeight + buffRow + s.iconSize + pad * 2
   end
   return blockW, blockH
 end
 
 local function PanelHeight(n)
   local _, blockH = BlockSize()
-  return 30 + 8 + n * blockH + (n - 1) * Settings().spacing
+  return 12 + n * blockH + (n - 1) * Settings().blockSpacing
 end
 
 local function ApplyPosition()
@@ -467,7 +471,7 @@ local function CreateMember(unitId, index)
   local f = CreateFrame("Frame", "KidsHealBox" .. index, container)
   f:SetSize(blockW, blockH)
   f:SetPoint("TOPLEFT", container, "TOPLEFT", 0,
-             -(38 + (index - 1) * (blockH + s.spacing)))
+             -(12 + (index - 1) * (blockH + s.blockSpacing)))
 
   f.bg = f:CreateTexture(nil, "BACKGROUND")
   f.bg:SetAllPoints()
@@ -476,9 +480,9 @@ local function CreateMember(unitId, index)
   local hb = CreateFrame("StatusBar", nil, f)
   hb:SetSize(s.barWidth - 8, s.barHeight - 8)
   if s.iconsRight then
-    hb:SetPoint("LEFT", f, "LEFT", 4, 0)
+    hb:SetPoint("LEFT", f, "LEFT", s.barPadding, 0)
   else
-    hb:SetPoint("TOP", f, "TOP", 0, -4)
+    hb:SetPoint("TOP", f, "TOP", 0, -s.barPadding)
   end
   hb:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
   hb:SetMinMaxValues(0, 1)
@@ -506,8 +510,9 @@ local function CreateMember(unitId, index)
   for bi = 1, maxB do
     local bf = CreateFrame("Frame", nil, f)
     bf:SetSize(s.buffSize, s.buffSize)
-    bf:SetPoint("TOPLEFT", f, "TOPLEFT", 4 + (bi - 1) * (s.buffSize + 2),
-      -(s.barHeight + 2))
+    bf:SetPoint("TOPLEFT", f, "TOPLEFT",
+      s.barPadding + (bi - 1) * (s.buffSize + 2),
+      -(s.barHeight + s.barPadding))
     bf.bg = bf:CreateTexture(nil, "BACKGROUND")
     bf.bg:SetAllPoints()
     bf.bg:SetColorTexture(0, 0, 0, 0.5)
@@ -538,7 +543,8 @@ local function CreateMember(unitId, index)
     else
       local xOff = -((n - 1) * (s.iconSize + s.iconSpacing)) / 2
         + (i - 1) * (s.iconSize + s.iconSpacing)
-      btn:SetPoint("TOP", f, "TOP", xOff, -(s.barHeight + s.buffSize + 6))
+      btn:SetPoint("TOP", f, "TOP", xOff,
+        -(s.barHeight + s.buffPadding + s.buffSize + s.barPadding))
     end
 
     btn.isKidSlot = true
@@ -692,7 +698,7 @@ local panel, optionsError = pcall(function()
   scroll:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -48)
   scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -32, 16)
   local child = CreateFrame("Frame", "KidsHealOptionsChild", scroll)
-  child:SetSize(1, 740)
+  child:SetSize(1, 900)
   scroll:SetScrollChild(child)
 
   local note = child:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
@@ -743,20 +749,23 @@ local panel, optionsError = pcall(function()
   MakeSlider("Zahlengröße (HP)", "hpFontSize", 8, 24, 1, -380)
   MakeSlider("Buffgröße", "buffSize", 12, 32, 2, -430)
   MakeSlider("Anzahl Icons", "slotCount", 1, 10, 1, -480)
-  MakeCheckbox("Alle Buffs zeigen (statt nur HoTs/Schilde)", "showAllBuffs", -530)
-  MakeCheckbox("Nur meine Zauber zeigen (nur HoTs/Schilde, die ich selbst gecastet habe)", "onlyMyBuffs", -570)
+  MakeSlider("Abstand zwischen Charakteren", "blockSpacing", 0, 30, 1, -530)
+  MakeSlider("Abstand Balken zu Buffs", "buffPadding", 0, 20, 1, -580)
+  MakeSlider("Rahmenabstand (Padding)", "barPadding", 0, 16, 1, -630)
+  MakeCheckbox("Alle Buffs zeigen (statt nur HoTs/Schilde)", "showAllBuffs", -700)
+  MakeCheckbox("Nur meine Zauber zeigen (nur HoTs/Schilde, die ich selbst gecastet habe)", "onlyMyBuffs", -740)
 
   -- slot + spell dropdown --------------------------------------------
   local ddLabel = child:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-  ddLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -606)
+  ddLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -800)
   ddLabel:SetText("Zauber per Liste wählen (Slot auswählen, dann Zauber):")
 
   local slotLabel = child:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  slotLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 40, -636)
+  slotLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 40, -830)
   slotLabel:SetText("Slot:")
 
   local slotDD = CreateFrame("Frame", "KidsHealSlotDD", child, "UIDropDownMenuTemplate")
-  slotDD:SetPoint("TOPLEFT", child, "TOPLEFT", 80, -631)
+  slotDD:SetPoint("TOPLEFT", child, "TOPLEFT", 80, -825)
   UIDropDownMenu_SetWidth(slotDD, 80)
   local curSlot = 1
   local function SlotDDText()
@@ -778,11 +787,11 @@ local panel, optionsError = pcall(function()
   SlotDDText()
 
   local spellLabel = child:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  spellLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 220, -636)
+  spellLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 220, -830)
   spellLabel:SetText("Zauber:")
 
   local spellDD = CreateFrame("Frame", "KidsHealSpellDD", child, "UIDropDownMenuTemplate")
-  spellDD:SetPoint("TOPLEFT", child, "TOPLEFT", 280, -631)
+  spellDD:SetPoint("TOPLEFT", child, "TOPLEFT", 280, -825)
   UIDropDownMenu_SetWidth(spellDD, 180)
   UIDropDownMenu_Initialize(spellDD, function(self, level)
     if level == 1 then
