@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.23
+  KidsHeal v1.3.24
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -310,6 +310,27 @@ local function UpdateMember(member)
   UpdateHealth(member)
   for i = 1, SlotCount() do UpdateButton(member, i) end
   UpdateBuffs(member)
+end
+
+-- re-stack all visible member bars top-down; the panel height follows.
+-- called after every visibility change so the focus bar sits directly
+-- after the last present member instead of at a fixed position.
+local unitOrder = { "player", "party1", "party2", "party3", "party4", "focus" }
+local function Relayout()
+  local s = Settings()
+  local _, blockH = BlockSize()
+  local y = 12
+  local visible = 0
+  for _, unit in ipairs(unitOrder) do
+    local m = memberFrames[unit]
+    if m and m.main:IsShown() then
+      m.main:ClearAllPoints()
+      m.main:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -y)
+      y = y + blockH + s.blockSpacing
+      visible = visible + 1
+    end
+  end
+  container:SetHeight(12 + visible * blockH + math.max(visible - 1, 0) * s.blockSpacing)
 end
 
 -- ------------------------------------------------------------------ buffs
@@ -699,9 +720,10 @@ local function Rebuild()
   end
 
   local blockW = BlockSize()
-  container:SetSize(blockW, PanelHeight(#units))
+  container:SetWidth(blockW)
   for i = 1, SlotCount() do ApplySlotToAll(i) end
   for _, m in pairs(memberFrames) do UpdateMember(m) end
+  Relayout()
 end
 
 local function RequestRebuild()
@@ -955,9 +977,9 @@ container:SetScript("OnEvent", function(_, event, unit, a1, a2, a3, a4)
       ApplyPosition()
     end
     if event == "PLAYER_FOCUS_CHANGED" then
-      -- just refresh visibility/values; the frames exist already
-      local m = memberFrames["focus"]
-      if m then UpdateMember(m) end
+      -- refresh visibility/values, then re-stack the bars
+      for _, m in pairs(memberFrames) do UpdateMember(m) end
+      Relayout()
     else
       RequestRebuild()
     end
