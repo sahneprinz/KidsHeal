@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.19
+  KidsHeal v1.3.20
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -70,7 +70,12 @@ local function Profile()
   local k = CharKey()
   if type(KidsHealDB[k]) ~= "table" then KidsHealDB[k] = { spells = {} } end
   local p = KidsHealDB[k]
-  if type(p.spells) ~= "table" then p.spells = {} end
+  if type(p.spells) == "table" and type(p.specSpells) ~= "table" then
+    -- migrate old flat layout to the current specialization
+    p.specSpells = { [GetSpecialization() or 1] = p.spells }
+    p.spells = nil
+  end
+  if type(p.specSpells) ~= "table" then p.specSpells = {} end
   if type(p.x) ~= "number" then p.x, p.y = DEFAULT_POS.x, DEFAULT_POS.y end
   if type(p.settings) ~= "table" then p.settings = {} end
   for key, val in pairs(DEFAULTS) do
@@ -81,6 +86,13 @@ end
 
 local function Settings()
   return Profile().settings
+end
+
+local function SpellSlots()
+  local p = Profile()
+  local spec = GetSpecialization() or 1
+  if type(p.specSpells[spec]) ~= "table" then p.specSpells[spec] = {} end
+  return p.specSpells[spec]
 end
 
 -- ------------------------------------------------------------------ layout
@@ -168,7 +180,7 @@ end
 
 local function ApplySlotToAll(slotIndex)
   local p = Profile()
-  local entry = ResolveEntry(p.spells[slotIndex])
+  local entry = ResolveEntry(SpellSlots()[slotIndex])
   for unitId, m in pairs(memberFrames) do
     local btn = m.buttons[slotIndex]
     if btn then
@@ -191,7 +203,7 @@ local function AssignEntry(slotIndex, rawEntry)
     print("|cff00ccffKidsHeal|r: Nicht im Kampf möglich.")
     return
   end
-  Profile().spells[slotIndex] = rawEntry
+  SpellSlots()[slotIndex] = rawEntry
   ApplySlotToAll(slotIndex)
   local r = ResolveEntry(rawEntry)
   print("|cff00ccffKidsHeal|r: Slot " .. slotIndex .. " = " .. (r and r.name or "?"))
@@ -813,7 +825,7 @@ local panel, optionsError = pcall(function()
   local curSlot = 1
   local function SlotDDText()
     UIDropDownMenu_SetText(slotDD, "Slot " .. curSlot ..
-      (Profile().spells[curSlot] and " (belegt)" or ""))
+      (SpellSlots()[curSlot] and " (belegt)" or ""))
   end
   UIDropDownMenu_Initialize(slotDD, function(self, level)
     for i = 1, Settings().slotCount do
@@ -843,7 +855,7 @@ local panel, optionsError = pcall(function()
       info.notCheckable = true
       info.func = function()
         if not InCombatLockdown() then
-          Profile().spells[curSlot] = nil
+          SpellSlots()[curSlot] = nil
           ApplySlotToAll(curSlot)
           print("|cff00ccffKidsHeal|r: Slot " .. curSlot .. " geleert.")
         end
@@ -889,7 +901,10 @@ end
 
 -- ------------------------------------------------------------------ events
 container:SetScript("OnEvent", function(_, event, unit, a1, a2, a3, a4)
-  if event == "PLAYER_ENTERING_WORLD" or event == "GROUP_ROSTER_UPDATE"
+  if event == "PLAYER_SPECIALIZATION_CHANGED" then
+    -- spell slots are saved per spec: rebuild with the new spec's spells
+    RequestRebuild()
+  elseif event == "PLAYER_ENTERING_WORLD" or event == "GROUP_ROSTER_UPDATE"
       or event == "PLAYER_FOCUS_CHANGED" then
     if event == "PLAYER_ENTERING_WORLD" then
       ApplyPosition()
@@ -928,6 +943,7 @@ container:RegisterEvent("UNIT_NAME_UPDATE")
 container:RegisterEvent("UNIT_AURA")
 container:RegisterEvent("UNIT_SPELLCAST_SUCCEEDED")
 container:RegisterEvent("PLAYER_FOCUS_CHANGED")
+container:RegisterEvent("PLAYER_SPECIALIZATION_CHANGED")
 
 -- timers: 0.02s cursor polling, 0.25s cooldown/range refresh
 local fast = 0
@@ -963,7 +979,7 @@ SlashCmdList["KIDSHEAL"] = function(msg)
     local n = tonumber(arg)
     if n and n >= 1 and n <= Settings().slotCount then
       if not InCombatLockdown() then
-        Profile().spells[n] = nil
+        SpellSlots()[n] = nil
         ApplySlotToAll(n)
         print("|cff00ccffKidsHeal|r: Slot " .. n .. " geleert.")
       else
