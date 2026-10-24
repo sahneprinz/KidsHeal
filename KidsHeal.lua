@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.14
+  KidsHeal v1.3.15
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -26,9 +26,9 @@
 ]]
 
 local DEFAULTS = {
-  barWidth = 260,
-  barHeight = 46,
-  iconSize = 52,
+  barWidth = 120,
+  barHeight = 36,
+  iconSize = 24,
   spacing = 10,
   iconSpacing = 8,
   slotCount = 4,
@@ -38,7 +38,7 @@ local DEFAULTS = {
   hpFontSize = 14,
   buffSize = 18,
   barPadding = 4,
-  buffPadding = 6,
+  buffPadding = -9,
   blockSpacing = 10,
   showAllBuffs = false,
   onlyMyBuffs = false,
@@ -737,9 +737,9 @@ local panel, optionsError = pcall(function()
     return cb
   end
 
-  MakeSlider("Balkenbreite", "barWidth", 120, 400, 10, -80)
+  MakeSlider("Balkenbreite", "barWidth", 50, 400, 10, -80)
   MakeSlider("Balkenhöhe", "barHeight", 24, 80, 2, -130)
-  MakeSlider("Icongröße", "iconSize", 24, 80, 2, -180)
+  MakeSlider("Icongröße", "iconSize", 20, 80, 2, -180)
   MakeCheckbox("Icons rechts neben den Balken", "iconsRight", -240)
   MakeCheckbox("Lebenspunkte als Text anzeigen", "showHealthText", -280)
   MakeSlider("Namensgröße", "nameFontSize", 8, 24, 1, -330)
