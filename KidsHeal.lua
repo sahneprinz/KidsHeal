@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.27
+  KidsHeal v1.3.28
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -25,7 +25,7 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local ADDON_VERSION = "1.3.27"
+local ADDON_VERSION = "1.3.28"
 
 local DEFAULTS = {
   barWidth = 120,
@@ -736,6 +736,12 @@ minimapButton.icon = minimapButton:CreateTexture(nil, "BACKGROUND")
 minimapButton.icon:SetAllPoints()
 minimapButton.icon:SetTexture("Interface\\Icons\\Spell_Holy_HealFever")
 minimapButton.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+-- the typical round minimap-button border every other addon uses
+minimapButton.border = minimapButton:CreateTexture(nil, "OVERLAY")
+minimapButton.border:SetSize(54, 54)
+minimapButton.border:SetTexture("Interface\\Minimap\\UI-Minimap-Border")
+minimapButton.border:SetTexCoord(0.125, 0.875, 0.125, 0.875)
+minimapButton.border:SetPoint("CENTER", minimapButton, "CENTER", 0, 0)
 minimapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
 minimapButton:RegisterForClicks("AnyUp")
 minimapButton:RegisterForDrag("LeftButton")
