@@ -1,4 +1,4 @@
-# KidsHeal v1.3.32
+# KidsHeal v1.3.33
 
 **KidsHeal is a World of Warcraft: Legion addon that aims to make healing a party easy — at the cost of efficiency.**
 
@@ -23,7 +23,7 @@ KidsHeal follows the old washing machine salesman's approach: *"Even a child can
 ## Install
 1. [Download the ZIP](https://github.com/sahneprinz/KidsHeal/archive/refs/heads/main.zip) of this repository.
 2. Rename the inner folder `KidsHeal-main` to `KidsHeal`.
-3. Put it in your WoW folder under `Interface/AddOns/` so you get `Interface/AddOns/KidsHeal/` containing `KidsHeal.toc` and `KidsHeal.lua`.
+3. Put it in your WoW folder under `Interface/AddOns/` so you get `Interface/AddOns/KidsHeal/` containing `KidsHeal.toc`, `KidsHeal.lua` and the `Textures` folder.
 4. Make sure KidsHeal is checked in the addon list.
 
 ## Commands

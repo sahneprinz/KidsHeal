@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.32
+  KidsHeal v1.3.33
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -25,7 +25,7 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local ADDON_VERSION = "1.3.32"
+local ADDON_VERSION = "1.3.33"
 
 local DEFAULTS = {
   barWidth = 120,
@@ -733,12 +733,10 @@ minimapButton:SetSize(31, 31)
 minimapButton:SetFrameStrata("MEDIUM")
 minimapButton:SetFrameLevel(8)
 minimapButton.icon = minimapButton:CreateTexture(nil, "BACKGROUND")
--- mask API unavailable on this client: draw the icon at the ring's inner
--- diameter (24 of 31 px) so it fills the circle without square corners
-minimapButton.icon:SetSize(24, 24)
-minimapButton.icon:SetPoint("CENTER", minimapButton, "CENTER", 0, 0)
-minimapButton.icon:SetTexture("Interface\\Icons\\Spell_Holy_Renew")
-minimapButton.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+-- custom pre-cropped circular icon (Textures/KidsHealButton.tga):
+-- the circle fills the whole button, corners are transparent by design
+minimapButton.icon:SetAllPoints()
+minimapButton.icon:SetTexture("Interface\\AddOns\\KidsHeal\\Textures\\KidsHealButton")
 -- classic round minimap-button border. Drawn with the same geometry as
 -- the hover highlight (which is correctly placed on this client): full
 -- button size, overlay layer, center-anchored.
