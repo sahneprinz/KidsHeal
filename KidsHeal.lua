@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.38
+  KidsHeal v1.3.39
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -25,7 +25,7 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local ADDON_VERSION = "1.3.38"
+local ADDON_VERSION = "1.3.39"
 
 local DEFAULTS = {
   barWidth = 120,
@@ -736,8 +736,29 @@ minimapButton.icon = minimapButton:CreateTexture(nil, "BACKGROUND")
 -- custom pre-cropped circular icon (Textures/KidsHealButton.tga):
 -- the circle fills the whole button, corners are transparent by design
 minimapButton.icon:SetAllPoints()
--- same convention as HealBot: extensionless texture path (uncompressed 32-bit TGA)
-minimapButton.icon:SetTexture("Interface\\AddOns\\KidsHeal\\Textures\\KidsHealSmiley")
+-- texture loading with fallback chain:
+-- 1) our custom smiley (extensionless path, HealBot convention)
+-- 2) retried once after a delay (some clients load addon files late)
+-- 3) a guaranteed internal game texture as last resort (never green)
+local SMILEY_PATH = "Interface\\AddOns\\KidsHeal\\Textures\\KidsHealSmiley"
+local FALLBACK_ICON = "Interface\\Icons\\Spell_Holy_Renew"
+local function LoadMinimapIcon()
+  minimapButton.icon:SetTexture(SMILEY_PATH)
+  if not minimapButton.icon:GetTexture() then
+    minimapButton.icon:SetTexture(FALLBACK_ICON)
+    minimapButton.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+  else
+    minimapButton.icon:SetTexCoord(0, 1, 0, 1)
+  end
+end
+LoadMinimapIcon()
+-- retry once the client is fully loaded (deferred file access)
+local retry = CreateFrame("Frame")
+retry:RegisterEvent("PLAYER_LOGIN")
+retry:SetScript("OnEvent", function(self)
+  LoadMinimapIcon()
+  self:UnregisterEvent("PLAYER_LOGIN")
+end)
 -- classic round minimap-button border. Drawn with the same geometry as
 -- the hover highlight (which is correctly placed on this client): full
 -- button size, overlay layer, center-anchored.
