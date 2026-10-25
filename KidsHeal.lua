@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.26
+  KidsHeal v1.3.27
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -25,7 +25,7 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local ADDON_VERSION = "1.3.26"
+local ADDON_VERSION = "1.3.27"
 
 local DEFAULTS = {
   barWidth = 120,
@@ -724,6 +724,55 @@ handle:SetSize(260, 12)
 EnableDrag(handle)
 
 container:SetMovable(true)
+
+-- ------------------------------------------------------------------ minimap button
+-- small button on the minimap edge: click toggles the panel, drag moves
+-- the button around the minimap (position saved per character)
+local minimapButton = CreateFrame("Button", "KidsHealMinimapButton", Minimap)
+minimapButton:SetSize(31, 31)
+minimapButton:SetFrameStrata("MEDIUM")
+minimapButton:SetFrameLevel(8)
+minimapButton.icon = minimapButton:CreateTexture(nil, "BACKGROUND")
+minimapButton.icon:SetAllPoints()
+minimapButton.icon:SetTexture("Interface\\Icons\\Spell_Holy_HealFever")
+minimapButton.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
+minimapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
+minimapButton:RegisterForClicks("AnyUp")
+minimapButton:RegisterForDrag("LeftButton")
+minimapButton:SetMovable(true)
+
+local function UpdateMinimapButtonPos()
+  local angle = Settings().minimapAngle or -0.7
+  local r = Minimap:GetWidth() / 2 + minimapButton:GetWidth() / 2 - 3
+  minimapButton:ClearAllPoints()
+  minimapButton:SetPoint("CENTER", Minimap, "CENTER",
+    math.cos(angle) * r, math.sin(angle) * r)
+end
+
+minimapButton:SetScript("OnClick", function()
+  if container:IsVisible() then
+    container:Hide()
+  else
+    container:Show()
+  end
+end)
+
+minimapButton:SetScript("OnDragStart", function(self)
+  self:SetScript("OnUpdate", function()
+    local mx, my = Minimap:GetCenter()
+    local scale = Minimap:GetEffectiveScale()
+    local px, py = GetCursorPosition()
+    px, py = px / scale, py / scale
+    local angle = math.atan2(py - my, px - mx)
+    Settings().minimapAngle = angle
+    UpdateMinimapButtonPos()
+  end)
+end)
+minimapButton:SetScript("OnDragStop", function(self)
+  self:SetScript("OnUpdate", nil)
+end)
+
+UpdateMinimapButtonPos()
 
 -- keep the handle as wide as the panel
 local function SyncHandleWidth()
