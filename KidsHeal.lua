@@ -25,6 +25,8 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
+local ADDON_VERSION = "1.3.24"
+
 local DEFAULTS = {
   barWidth = 120,
   barHeight = 36,
@@ -1030,7 +1032,7 @@ end)
 
 -- initial layout
 SyncHandleWidth()
-print("|cff00ccffKidsHeal|r v1.3.1 geladen. /kidsheal für Hilfe.")
+print("|cff00ccffKidsHeal|r v" .. ADDON_VERSION .. " geladen. /kidsheal für Hilfe.")
 
 -- ------------------------------------------------------------------ slash
 SLASH_KIDSHEAL1 = "/kidsheal"
