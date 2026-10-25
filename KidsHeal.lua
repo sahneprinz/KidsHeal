@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.24
+  KidsHeal v1.3.25
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -25,7 +25,7 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local ADDON_VERSION = "1.3.24"
+local ADDON_VERSION = "1.3.25"
 
 local DEFAULTS = {
   barWidth = 120,
@@ -613,12 +613,6 @@ local function CreateMember(unitId, index)
     bf.time:SetPoint("BOTTOMRIGHT", bf, "BOTTOMRIGHT", 0, 0)
     bf.time:SetFont(STANDARD_TEXT_FONT, math.max(s.buffSize * 0.45, 7), "OUTLINE")
     bf:Hide()
-    bf:SetScript("OnEnter", function(self)
-      GameTooltip:SetOwner(self, "ANCHOR_TOP")
-      if self.buffName then GameTooltip:SetUnitBuff(unitId, self.buffIndex) end
-      GameTooltip:Show()
-    end)
-    bf:SetScript("OnLeave", function() GameTooltip:Hide() end)
     member.buffFrames[bi] = bf
   end
 
@@ -670,41 +664,9 @@ local function CreateMember(unitId, index)
       end
     end)
 
-    btn:SetScript("OnEnter", function(self)
-      GameTooltip:SetOwner(self, "ANCHOR_TOP")
-      local e = self.entry
-      if e then
-        if e.kind == "spell" then
-          if e.id then
-            GameTooltip:SetSpellByID(e.id)
-          else
-            GameTooltip:SetText(e.name)
-          end
-        else
-          GameTooltip:SetItemByID(e.id)
-        end
-        GameTooltip:AddLine("Klick: wirken auf " ..
-          (UnitName(unitId) or unitId), 1, 1, 1)
-      else
-        GameTooltip:AddLine("Leerer Slot", 1, 1, 1)
-        GameTooltip:AddLine("Klick: nächsten Zauber wirken, der dann hier landet", 0.8, 0.8, 0.8)
-        GameTooltip:AddLine("(oder /kidsheal set <slot> <Name>)", 0.8, 0.8, 0.8)
-      end
-      GameTooltip:Show()
-    end)
-    btn:SetScript("OnLeave", function() GameTooltip:Hide() end)
-
     member.buttons[i] = btn
   end
 
-  f:SetScript("OnEnter", function(self)
-    if UnitExists(unitId) then
-      GameTooltip:SetOwner(self, "ANCHOR_TOP")
-      GameTooltip:SetUnit(unitId)
-      GameTooltip:Show()
-    end
-  end)
-  f:SetScript("OnLeave", function() GameTooltip:Hide() end)
   EnableDrag(f)
 
   return member
