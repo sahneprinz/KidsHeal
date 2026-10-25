@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.25
+  KidsHeal v1.3.26
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -25,7 +25,7 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local ADDON_VERSION = "1.3.25"
+local ADDON_VERSION = "1.3.26"
 
 local DEFAULTS = {
   barWidth = 120,
@@ -315,24 +315,42 @@ local function UpdateMember(member)
 end
 
 -- re-stack all visible member bars top-down; the panel height follows.
+-- order: tanks first, then healers, then everyone else; focus always last.
 -- called after every visibility change so the focus bar sits directly
 -- after the last present member instead of at a fixed position.
-local unitOrder = { "player", "party1", "party2", "party3", "party4", "focus" }
+local allUnits = { "player", "party1", "party2", "party3", "party4", "focus" }
 local function Relayout()
   local s = Settings()
   local _, blockH = BlockSize()
-  local y = 12
-  local visible = 0
-  for _, unit in ipairs(unitOrder) do
-    local m = memberFrames[unit]
-    if m and m.main:IsShown() then
-      m.main:ClearAllPoints()
-      m.main:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -y)
-      y = y + blockH + s.blockSpacing
-      visible = visible + 1
-    end
+
+  local roleRank = { TANK = 1, HEALER = 2 }
+  local function rank(unit)
+    if unit == "focus" then return 9 end
+    return roleRank[UnitGroupRolesAssigned(unit)] or 3
   end
-  container:SetHeight(12 + visible * blockH + math.max(visible - 1, 0) * s.blockSpacing)
+
+  local position = {}
+  for i, unit in ipairs(allUnits) do position[unit] = i end
+  local visibleUnits = {}
+  for _, unit in ipairs(allUnits) do
+    local m = memberFrames[unit]
+    if m and m.main:IsShown() then visibleUnits[#visibleUnits + 1] = unit end
+  end
+  table.sort(visibleUnits, function(a, b)
+    local ra, rb = rank(a), rank(b)
+    if ra ~= rb then return ra < rb end
+    return position[a] < position[b]
+  end)
+
+  local y = 12
+  for _, unit in ipairs(visibleUnits) do
+    local m = memberFrames[unit]
+    m.main:ClearAllPoints()
+    m.main:SetPoint("TOPLEFT", container, "TOPLEFT", 0, -y)
+    y = y + blockH + s.blockSpacing
+  end
+  local n = #visibleUnits
+  container:SetHeight(12 + n * blockH + math.max(n - 1, 0) * s.blockSpacing)
 end
 
 -- ------------------------------------------------------------------ buffs
