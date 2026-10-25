@@ -1,4 +1,4 @@
-# KidsHeal v1.3.39
+# KidsHeal v1.3.40
 
 **KidsHeal is a World of Warcraft: Legion addon that aims to make healing a party easy — at the cost of efficiency.**
 

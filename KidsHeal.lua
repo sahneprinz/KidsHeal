@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.39
+  KidsHeal v1.3.40
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -25,7 +25,7 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local ADDON_VERSION = "1.3.39"
+local ADDON_VERSION = "1.3.40"
 
 local DEFAULTS = {
   barWidth = 120,
@@ -726,83 +726,42 @@ EnableDrag(handle)
 container:SetMovable(true)
 
 -- ------------------------------------------------------------------ minimap button
--- small button on the minimap edge: click toggles the panel, drag moves
--- the button around the minimap (position saved per character)
-local minimapButton = CreateFrame("Button", "KidsHealMinimapButton", Minimap)
-minimapButton:SetSize(31, 31)
-minimapButton:SetFrameStrata("MEDIUM")
-minimapButton:SetFrameLevel(8)
-minimapButton.icon = minimapButton:CreateTexture(nil, "BACKGROUND")
--- custom pre-cropped circular icon (Textures/KidsHealButton.tga):
--- the circle fills the whole button, corners are transparent by design
-minimapButton.icon:SetAllPoints()
--- texture loading with fallback chain:
--- 1) our custom smiley (extensionless path, HealBot convention)
--- 2) retried once after a delay (some clients load addon files late)
--- 3) a guaranteed internal game texture as last resort (never green)
-local SMILEY_PATH = "Interface\\AddOns\\KidsHeal\\Textures\\KidsHealSmiley"
-local FALLBACK_ICON = "Interface\\Icons\\Spell_Holy_Renew"
-local function LoadMinimapIcon()
-  minimapButton.icon:SetTexture(SMILEY_PATH)
-  if not minimapButton.icon:GetTexture() then
-    minimapButton.icon:SetTexture(FALLBACK_ICON)
-    minimapButton.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
-  else
-    minimapButton.icon:SetTexCoord(0, 1, 0, 1)
-  end
-end
-LoadMinimapIcon()
--- retry once the client is fully loaded (deferred file access)
-local retry = CreateFrame("Frame")
-retry:RegisterEvent("PLAYER_LOGIN")
-retry:SetScript("OnEvent", function(self)
-  LoadMinimapIcon()
-  self:UnregisterEvent("PLAYER_LOGIN")
-end)
--- classic round minimap-button border. Drawn with the same geometry as
--- the hover highlight (which is correctly placed on this client): full
--- button size, overlay layer, center-anchored.
-minimapButton.border = minimapButton:CreateTexture(nil, "OVERLAY")
-minimapButton.border:SetAllPoints()
-minimapButton.border:SetTexture("Interface\\Minimap\\UI-Minimap-Border")
-minimapButton.border:SetTexCoord(0.125, 0.875, 0.125, 0.875)
-minimapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
-minimapButton:RegisterForClicks("AnyUp")
-minimapButton:RegisterForDrag("LeftButton")
-minimapButton:SetMovable(true)
+-- standard LDB + LibDBIcon approach (same as HealBot): the library draws
+-- the classic round button, handles circular dragging and saves the
+-- position per character. Left-click toggles the panel.
+local ldb = LibStub("LibDataBroker-1.1")
+local iconLib = LibStub("LibDBIcon-1.0", true)
 
-local function UpdateMinimapButtonPos()
-  local angle = Settings().minimapAngle or -0.7
-  local r = Minimap:GetWidth() / 2 + minimapButton:GetWidth() / 2 - 3
-  minimapButton:ClearAllPoints()
-  minimapButton:SetPoint("CENTER", Minimap, "CENTER",
-    math.cos(angle) * r, math.sin(angle) * r)
-end
+if ldb and iconLib then
+  local kidsHealLDB = ldb:NewDataObject("KidsHeal", {
+    type = "data source",
+    text = "KidsHeal",
+    icon = "Interface\\AddOns\\KidsHeal\\Textures\\KidsHealSmiley",
+    OnClick = function(self, button)
+      if button == "LeftButton" then
+        if container:IsVisible() then
+          container:Hide()
+        else
+          container:Show()
+        end
+      end
+    end,
+    OnTooltipShow = function(tooltip)
+      if not tooltip or not tooltip.AddLine then return end
+      tooltip:AddLine("KidsHeal")
+      tooltip:AddLine("Klick: Leisten zeigen/verstecken", 1, 1, 1)
+    end,
+  })
 
-minimapButton:SetScript("OnClick", function()
-  if container:IsVisible() then
-    container:Hide()
-  else
-    container:Show()
-  end
-end)
-
-minimapButton:SetScript("OnDragStart", function(self)
-  self:SetScript("OnUpdate", function()
-    local mx, my = Minimap:GetCenter()
-    local scale = Minimap:GetEffectiveScale()
-    local px, py = GetCursorPosition()
-    px, py = px / scale, py / scale
-    local angle = math.atan2(py - my, px - mx)
-    Settings().minimapAngle = angle
-    UpdateMinimapButtonPos()
+  local mmFrame = CreateFrame("Frame")
+  mmFrame:RegisterEvent("PLAYER_LOGIN")
+  mmFrame:SetScript("OnEvent", function(self)
+    local p = Profile()
+    if type(p.minimap) ~= "table" then p.minimap = { hide = false } end
+    iconLib:Register("KidsHeal", kidsHealLDB, p.minimap)
+    self:UnregisterEvent("PLAYER_LOGIN")
   end)
-end)
-minimapButton:SetScript("OnDragStop", function(self)
-  self:SetScript("OnUpdate", nil)
-end)
-
-UpdateMinimapButtonPos()
+end
 
 -- keep the handle as wide as the panel
 local function SyncHandleWidth()
