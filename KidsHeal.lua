@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.31
+  KidsHeal v1.3.32
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -25,7 +25,7 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local ADDON_VERSION = "1.3.31"
+local ADDON_VERSION = "1.3.32"
 
 local DEFAULTS = {
   barWidth = 120,
@@ -733,25 +733,19 @@ minimapButton:SetSize(31, 31)
 minimapButton:SetFrameStrata("MEDIUM")
 minimapButton:SetFrameLevel(8)
 minimapButton.icon = minimapButton:CreateTexture(nil, "BACKGROUND")
-minimapButton.icon:SetSize(31, 31)
-minimapButton.icon:SetPoint("TOPLEFT", minimapButton, "TOPLEFT", 0, 0)
+-- mask API unavailable on this client: draw the icon at the ring's inner
+-- diameter (24 of 31 px) so it fills the circle without square corners
+minimapButton.icon:SetSize(24, 24)
+minimapButton.icon:SetPoint("CENTER", minimapButton, "CENTER", 0, 0)
 minimapButton.icon:SetTexture("Interface\\Icons\\Spell_Holy_Renew")
 minimapButton.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
--- crop the square icon into a circle filling the whole ring;
--- fall back to the small centered look if masks are unsupported
-if minimapButton.icon.SetMask then
-  minimapButton.icon:SetMask("Interface\\CharacterFrame\\TempPortraitAlphaMask")
-else
-  minimapButton.icon:SetSize(21, 21)
-  minimapButton.icon:ClearAllPoints()
-  minimapButton.icon:SetPoint("CENTER", minimapButton, "CENTER", 0, 0)
-end
--- classic round minimap-button border, sized to match the button
+-- classic round minimap-button border. Drawn with the same geometry as
+-- the hover highlight (which is correctly placed on this client): full
+-- button size, overlay layer, center-anchored.
 minimapButton.border = minimapButton:CreateTexture(nil, "OVERLAY")
-minimapButton.border:SetSize(31, 31)
+minimapButton.border:SetAllPoints()
 minimapButton.border:SetTexture("Interface\\Minimap\\UI-Minimap-Border")
 minimapButton.border:SetTexCoord(0.125, 0.875, 0.125, 0.875)
-minimapButton.border:SetPoint("TOPLEFT", minimapButton, "TOPLEFT", 0, 0)
 minimapButton:SetHighlightTexture("Interface\\Minimap\\UI-Minimap-ZoomButton-Highlight")
 minimapButton:RegisterForClicks("AnyUp")
 minimapButton:RegisterForDrag("LeftButton")
