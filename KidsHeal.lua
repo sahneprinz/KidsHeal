@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.34
+  KidsHeal v1.3.35
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -25,7 +25,7 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local ADDON_VERSION = "1.3.34"
+local ADDON_VERSION = "1.3.35"
 
 local DEFAULTS = {
   barWidth = 120,
@@ -736,7 +736,7 @@ minimapButton.icon = minimapButton:CreateTexture(nil, "BACKGROUND")
 -- custom pre-cropped circular icon (Textures/KidsHealButton.tga):
 -- the circle fills the whole button, corners are transparent by design
 minimapButton.icon:SetAllPoints()
-minimapButton.icon:SetTexture("Interface\\AddOns\\KidsHeal\\Textures\\KidsHealButton", ".png")
+minimapButton.icon:SetTexture("Interface\\AddOns\\KidsHeal\\Textures\\KidsHealSmiley.png")
 -- classic round minimap-button border. Drawn with the same geometry as
 -- the hover highlight (which is correctly placed on this client): full
 -- button size, overlay layer, center-anchored.
