@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.36
+  KidsHeal v1.3.37
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -25,7 +25,7 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local ADDON_VERSION = "1.3.36"
+local ADDON_VERSION = "1.3.37"
 
 local DEFAULTS = {
   barWidth = 120,
