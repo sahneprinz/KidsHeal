@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.40
+  KidsHeal v1.3.41
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -25,7 +25,7 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local ADDON_VERSION = "1.3.40"
+local ADDON_VERSION = "1.3.41"
 
 local DEFAULTS = {
   barWidth = 120,
@@ -736,7 +736,7 @@ if ldb and iconLib then
   local kidsHealLDB = ldb:NewDataObject("KidsHeal", {
     type = "data source",
     text = "KidsHeal",
-    icon = "Interface\\AddOns\\KidsHeal\\Textures\\KidsHealSmiley",
+    icon = 1273335,
     OnClick = function(self, button)
       if button == "LeftButton" then
         if container:IsVisible() then
