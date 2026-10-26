@@ -257,8 +257,10 @@ local function Settings()
   return Profile().settings
 end
 
+-- account-level language preference: one choice for every character on
+-- this WoW account (each WoW account has its own SavedVariables file)
 local function ActiveLocale()
-  local want = (type(KidsHealDB) == "table") and KidsHealDB[CharKey()] and KidsHealDB[CharKey()].locale
+  local want = (type(KidsHealDB) == "table") and KidsHealDB.locale
   if want and LOCALES[want] then return want end
   local cl = GetLocale()
   if LOCALES[cl] then return cl end
@@ -1052,7 +1054,7 @@ local panel, optionsError = pcall(function()
   local langOrder = { "auto", "enUS", "deDE", "esMX" }
   local RefreshOptionsText  -- forward declaration, defined further below
   local function LangDDText()
-    local cur = Profile().locale or "auto"
+    local cur = KidsHealDB.locale or "auto"
     if cur == "auto" then
       UIDropDownMenu_SetText(langDD, L("languageAuto") .. " — " .. LOCALE_NAMES[ActiveLocale()])
     else
@@ -1067,9 +1069,9 @@ local panel, optionsError = pcall(function()
       else
         info.text = LOCALE_NAMES[code]
       end
-      info.checked = ((Profile().locale or "auto") == code)
+      info.checked = ((KidsHealDB.locale or "auto") == code)
       info.func = function()
-        Profile().locale = (code ~= "auto") and code or nil
+        KidsHealDB.locale = (code ~= "auto") and code or nil
         RefreshOptionsText()
         LangDDText()
         RequestRebuild()
