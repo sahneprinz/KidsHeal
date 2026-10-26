@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.42
+  KidsHeal v1.3.43
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -25,7 +25,7 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local ADDON_VERSION = "1.3.42"
+local ADDON_VERSION = "1.3.43"
 
 local DEFAULTS = {
   barWidth = 120,
@@ -95,6 +95,32 @@ local function SpellSlots()
   local spec = GetSpecialization() or 1
   if type(p.specSpells[spec]) ~= "table" then p.specSpells[spec] = {} end
   return p.specSpells[spec]
+end
+
+-- per-spec enabled state (minimap button toggle). Defaults to ON for
+-- new characters/specs; remembered per character + spec across logins.
+local function SpecEnabled()
+  local p = Profile()
+  local spec = GetSpecialization() or 1
+  if type(p.specEnabled) ~= "table" then p.specEnabled = {} end
+  local v = p.specEnabled[spec]
+  if v == nil then v = true end
+  return v
+end
+
+local function SetSpecEnabled(v)
+  local p = Profile()
+  local spec = GetSpecialization() or 1
+  if type(p.specEnabled) ~= "table" then p.specEnabled = {} end
+  p.specEnabled[spec] = v and true or false
+end
+
+local function ApplySpecEnabled()
+  if SpecEnabled() then
+    container:Show()
+  else
+    container:Hide()
+  end
 end
 
 local function SlotCount()
@@ -739,11 +765,8 @@ if ldb and iconLib then
     icon = "Interface\\Icons\\Spell_Holy_Renew",
     OnClick = function(self, button)
       if button == "LeftButton" then
-        if container:IsVisible() then
-          container:Hide()
-        else
-          container:Show()
-        end
+        SetSpecEnabled(not SpecEnabled())
+        ApplySpecEnabled()
       end
     end,
     OnTooltipShow = function(tooltip)
@@ -984,8 +1007,9 @@ end
 -- ------------------------------------------------------------------ events
 container:SetScript("OnEvent", function(_, event, unit, a1, a2, a3, a4)
   if event == "PLAYER_SPECIALIZATION_CHANGED" then
-    -- spell slots AND icon count are saved per spec: rebuild + re-sync slider
+    -- spell slots, icon count AND enabled state are saved per spec
     RequestRebuild()
+    ApplySpecEnabled()
     if type(slotCountSlider) == "table" then
       slotCountSlider:SetValue(SlotCount())
       local textLbl = _G[slotCountSlider:GetName() .. "Text"]
@@ -995,6 +1019,7 @@ container:SetScript("OnEvent", function(_, event, unit, a1, a2, a3, a4)
       or event == "PLAYER_FOCUS_CHANGED" then
     if event == "PLAYER_ENTERING_WORLD" then
       ApplyPosition()
+      ApplySpecEnabled()
     end
     if event == "PLAYER_FOCUS_CHANGED" then
       -- refresh visibility/values, then re-stack the bars
