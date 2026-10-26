@@ -25,7 +25,7 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local ADDON_VERSION = "1.4.0"
+local ADDON_VERSION = "1.4.1"
 
 local DEFAULTS = {
   barWidth = 120,

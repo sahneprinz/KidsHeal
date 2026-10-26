@@ -2,7 +2,7 @@
 ## Title: KidsHeal
 ## Notes: Big health bars with clickable spell icons for each group member - healing for young healers.
 ## Author: sahneprinz
-## Version: 1.4.0
+## Version: 1.4.1
 ## SavedVariables: KidsHealDB
 
 # Libraries
