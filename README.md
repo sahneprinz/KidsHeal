@@ -39,7 +39,7 @@ KidsHeal follows the old washing machine salesman's approach: *"Even a child can
 ## Notes
 - Works with any client language (spells/items stored by ID).
 - Trinket caveat: items are used on the member via `/use [@unit] <item>`. Items that only ever work on yourself will still just work on yourself — that's a game rule, not an addon bug.
-- Drag-and-drop from the spellbook is supported, but on some clients unreliable — the click-and-cast method above is the recommended way.
+- Dragging spells onto slots does not work on this client — use one of the two methods above instead.
 - Assigning spells is disabled in combat (Blizzard rule).
 - **Language:** English, Deutsch, Español (Latinoamérica) — choose in the options panel; it follows your client language by default. The choice is saved **per WoW account**, so it applies to all your characters (two WoW accounts on the same PC can each have their own language).
 

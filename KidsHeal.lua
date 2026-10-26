@@ -5,10 +5,10 @@
 
   HOW TO USE
   ----------
-  1. Open your spellbook (or bags) and DRAG a spell onto one of the big
-     icon slots below (or next to, see options) a health bar. Every group
-     member's bar gets it. You can also drag usable ITEMS (e.g. a healing
-     trinket) onto a slot.
+  1. CLICK an empty "?" slot below (or next to, see options) a health bar,
+     then CAST a spell - it lands in that slot on every group member's bar.
+     Or use /kidsheal set <slot> <spell name>. (Dragging spells onto slots
+     does not work on this client.)
   2. LEFT-CLICK an icon -> casts that spell on THAT player.
   3. The cooldown sweep shows on every bar at the same time.
   4. MOVE the panel: left-click and hold the handle strip on top.
