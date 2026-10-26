@@ -41,3 +41,7 @@ KidsHeal follows the old washing machine salesman's approach: *"Even a child can
 - Trinket caveat: items are used on the member via `/use [@unit] <item>`. Items that only ever work on yourself will still just work on yourself — that's a game rule, not an addon bug.
 - Drag-and-drop from the spellbook is supported, but on some clients unreliable — the click-and-cast method above is the recommended way.
 - Assigning spells is disabled in combat (Blizzard rule).
+
+## License
+KidsHeal is released under the [MIT License](LICENSE).
+Vendored libraries (LibStub, CallbackHandler-1.0, LibDataBroker-1.1, LibDBIcon-1.0) remain under their own permissive licenses.
