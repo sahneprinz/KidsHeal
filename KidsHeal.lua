@@ -258,9 +258,21 @@ local function Settings()
 end
 
 -- account-level language preference: one choice for every character on
--- this WoW account (each WoW account has its own SavedVariables file)
+-- this WoW account (each WoW account has its own SavedVariables file).
+-- SavedVariables load AFTER .lua files, so KidsHealDB may still be nil
+-- at addon load time - every access must go through these safe helpers.
+local function GetAccountLocale()
+  return (type(KidsHealDB) == "table") and KidsHealDB.locale or nil
+end
+
+local function SetAccountLocale(code)
+  Profile().locale = nil
+  if type(KidsHealDB) ~= "table" then KidsHealDB = {} end
+  KidsHealDB.locale = code
+end
+
 local function ActiveLocale()
-  local want = (type(KidsHealDB) == "table") and KidsHealDB.locale
+  local want = GetAccountLocale()
   if want and LOCALES[want] then return want end
   local cl = GetLocale()
   if LOCALES[cl] then return cl end
@@ -1024,6 +1036,7 @@ end
 -- wrapped in pcall: if anything here fails on an older client, the addon
 -- must keep working (bars, clicks, slash command) instead of dying at load
 local slotCountSlider = nil
+local refreshLangDD = nil
 local panel, optionsError = pcall(function()
   local panel = CreateFrame("Frame", "KidsHealOptionsPanel", UIParent)
   panel.name = "KidsHeal"
@@ -1054,13 +1067,14 @@ local panel, optionsError = pcall(function()
   local langOrder = { "auto", "enUS", "deDE", "esMX" }
   local RefreshOptionsText  -- forward declaration, defined further below
   local function LangDDText()
-    local cur = KidsHealDB.locale or "auto"
+    local cur = GetAccountLocale() or "auto"
     if cur == "auto" then
       UIDropDownMenu_SetText(langDD, L("languageAuto") .. " — " .. LOCALE_NAMES[ActiveLocale()])
     else
       UIDropDownMenu_SetText(langDD, LOCALE_NAMES[cur] or cur)
     end
   end
+  refreshLangDD = LangDDText
   UIDropDownMenu_Initialize(langDD, function(self, level)
     for _, code in ipairs(langOrder) do
       local info = UIDropDownMenu_CreateInfo()
@@ -1069,9 +1083,9 @@ local panel, optionsError = pcall(function()
       else
         info.text = LOCALE_NAMES[code]
       end
-      info.checked = ((KidsHealDB.locale or "auto") == code)
+      info.checked = ((GetAccountLocale() or "auto") == code)
       info.func = function()
-        KidsHealDB.locale = (code ~= "auto") and code or nil
+        SetAccountLocale((code ~= "auto") and code or nil)
         RefreshOptionsText()
         LangDDText()
         RequestRebuild()
@@ -1280,6 +1294,9 @@ container:SetScript("OnEvent", function(_, event, unit, a1, a2, a3, a4)
     if event == "PLAYER_ENTERING_WORLD" then
       ApplyPosition()
       ApplySpecEnabled()
+      -- SavedVariables are loaded by now: re-sync the language dropdown
+      -- (it was built before KidsHealDB existed)
+      if type(refreshLangDD) == "function" then refreshLangDD() end
     end
     if event == "PLAYER_FOCUS_CHANGED" then
       -- refresh visibility/values, then re-stack the bars
