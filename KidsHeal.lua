@@ -1,5 +1,5 @@
 --[[
-  KidsHeal v1.3.43
+  KidsHeal v1.4.0
   ==============
   Big health bars with clickable spell icons for each group member.
 
@@ -25,7 +25,7 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local ADDON_VERSION = "1.3.43"
+local ADDON_VERSION = "1.4.0"
 
 local DEFAULTS = {
   barWidth = 120,
@@ -49,6 +49,173 @@ local DEFAULTS = {
 }
 
 local DEFAULT_POS = { x = 40, y = -120 }
+
+-- ------------------------------------------------------------------ locales
+local LOCALES = {
+  enUS = {
+    notInCombat = "Not possible while in combat.",
+    slotSet = function(n, what) return "Slot " .. n .. " = " .. what end,
+    slotCleared = function(n) return "Slot " .. n .. " cleared." end,
+    clearUsage = function(n) return "/kidsheal clear 1.." .. n end,
+    spellPickPrompt = function(n)
+      return "Now cast a spell - it will land in slot " .. n ..
+        ". (Press Escape or use /kidsheal pick to cancel)"
+    end,
+    spellPickCancelled = "Spell selection cancelled.",
+    spellNotRecognized = "Spell not recognized. Use /kidsheal set.",
+    spellNotFound = function(name)
+      return "Spell \"" .. name .. "\" not found (write it exactly as in the spellbook)."
+    end,
+    setUsage = '/kidsheal set <slot> <spell name>, e.g. /kidsheal set 2 [Flash of Light]',
+    positionReset = "Position reset (top left).",
+    debugState = function(on) return "Debug " .. (on and "ON" or "OFF") ..
+      ". Hold a spell on the cursor and watch the chat." end,
+    rebuilt = "KidsHeal rebuilt.",
+    loaded = function(v) return "KidsHeal v" .. v .. " loaded. /kidsheal for help." end,
+    optionsBroken = function(err)
+      return "Options panel could not be created (" .. tostring(err) ..
+        "). /kidsheal still works." end,
+    optionsUnavailable = "Options panel not available.",
+    help = "reset | clear <slot> | set <slot> <spell> | test | refresh | debug | options",
+
+    optionsTitle = "KidsHeal Settings",
+    optionsNote = "Changes apply immediately outside of combat.",
+    barWidth = "Bar width",
+    barHeight = "Bar height",
+    iconSize = "Icon size",
+    iconsRight = "Icons to the right of the bars",
+    showHealthText = "Show health points as text",
+    nameFontSize = "Name size",
+    hpFontSize = "Number size (HP)",
+    buffSize = "Buff size",
+    slotCountLabel = "Number of icons (current specialization only)",
+    blockSpacing = "Spacing between characters",
+    buffPadding = "Buff overlap position",
+    barPadding = "Frame padding",
+    showAllBuffs = "Show all buffs (instead of only HoTs/shields)",
+    onlyMyBuffs = "Only show my spells (only HoTs/shields I cast myself)",
+    showFocus = "Show focus target as its own bar",
+    ddLabel = "Pick a spell from a list (select a slot, then a spell):",
+    slotLabel = "Slot:",
+    slotTaken = "(taken)",
+    spellLabel = "Spell:",
+    clearSlot = "— (clear slot) —",
+    spellbook = "Spellbook",
+    languageLabel = "Language:",
+    languageAuto = "Client language (auto)",
+  },
+  deDE = {
+    notInCombat = "Nicht im Kampf möglich.",
+    slotSet = function(n, what) return "Slot " .. n .. " = " .. what end,
+    slotCleared = function(n) return "Slot " .. n .. " geleert." end,
+    clearUsage = function(n) return "/kidsheal clear 1.." .. n end,
+    spellPickPrompt = function(n)
+      return "Wirke jetzt einen Zauber - er landet in Slot " .. n ..
+        ". (Escape oder /kidsheal pick zum Abbrechen)"
+    end,
+    spellPickCancelled = "Zauber-Auswahl abgebrochen.",
+    spellNotRecognized = "Zauber nicht erkannt. Nutze /kidsheal set.",
+    spellNotFound = function(name)
+      return "Zauber \"" .. name .. "\" nicht gefunden (exakt so schreiben wie im Zauberbuch)."
+    end,
+    setUsage = '/kidsheal set <slot> <Zaubername>, z.B. /kidsheal set 2 [Blitz des Lichts]',
+    positionReset = "Position zurückgesetzt (oben links).",
+    debugState = function(on) return "Debug " .. (on and "AN" or "AUS") ..
+      ". Halte einen Zauber im Cursor und schaue in den Chat." end,
+    rebuilt = "KidsHeal neu aufgebaut.",
+    loaded = function(v) return "KidsHeal v" .. v .. " geladen. /kidsheal für Hilfe." end,
+    optionsBroken = function(err)
+      return "Optionspanel konnte nicht erstellt werden (" .. tostring(err) ..
+        "). /kidsheal funktioniert trotzdem." end,
+    optionsUnavailable = "Optionspanel nicht verfügbar.",
+    help = "reset | clear <slot> | set <slot> <Zauber> | test | refresh | debug | options",
+
+    optionsTitle = "KidsHeal Einstellungen",
+    optionsNote = "Änderungen greifen sofort außerhalb des Kampfes.",
+    barWidth = "Balkenbreite",
+    barHeight = "Balkenhöhe",
+    iconSize = "Icongröße",
+    iconsRight = "Icons rechts neben den Balken",
+    showHealthText = "Lebenspunkte als Text anzeigen",
+    nameFontSize = "Namensgröße",
+    hpFontSize = "Zahlengröße (HP)",
+    buffSize = "Buffgröße",
+    slotCountLabel = "Anzahl Icons (nur diese Spezialisierung)",
+    blockSpacing = "Abstand zwischen Charakteren",
+    buffPadding = "Buff-Überlappposition",
+    barPadding = "Rahmenabstand (Padding)",
+    showAllBuffs = "Alle Buffs zeigen (statt nur HoTs/Schilde)",
+    onlyMyBuffs = "Nur meine Zauber zeigen (nur HoTs/Schilde, die ich selbst gecastet habe)",
+    showFocus = "Fokus-Ziel als eigene Leiste zeigen",
+    ddLabel = "Zauber per Liste wählen (Slot auswählen, dann Zauber):",
+    slotLabel = "Slot:",
+    slotTaken = "(belegt)",
+    spellLabel = "Zauber:",
+    clearSlot = "— (Slot leeren) —",
+    spellbook = "Zauberbuch",
+    languageLabel = "Sprache:",
+    languageAuto = "Client-Sprache (automatisch)",
+  },
+  esMX = {
+    notInCombat = "No es posible en combate.",
+    slotSet = function(n, what) return "Espacio " .. n .. " = " .. what end,
+    slotCleared = function(n) return "Espacio " .. n .. " vaciado." end,
+    clearUsage = function(n) return "/kidsheal clear 1.." .. n end,
+    spellPickPrompt = function(n)
+      return "Lanza ahora un hechizo - irá al espacio " .. n ..
+        ". (Escape o /kidsheal pick para cancelar)"
+    end,
+    spellPickCancelled = "Selección de hechizo cancelada.",
+    spellNotRecognized = "Hechizo no reconocido. Usa /kidsheal set.",
+    spellNotFound = function(name)
+      return "Hechizo \"" .. name .. "\" no encontrado (escríbelo exactamente como en el grimorio)."
+    end,
+    setUsage = '/kidsheal set <espacio> <nombre del hechizo>, p.ej. /kidsheal set 2 [Luz Sagrada]',
+    positionReset = "Posición restablecida (arriba a la izquierda).",
+    debugState = function(on) return "Depuración " .. (on and "ACTIVADA" or "DESACTIVADA") ..
+      ". Mantén un hechizo en el cursor y observa el chat." end,
+    rebuilt = "KidsHeal reconstruido.",
+    loaded = function(v) return "KidsHeal v" .. v .. " cargado. /kidsheal para ayuda." end,
+    optionsBroken = function(err)
+      return "No se pudo crear el panel de opciones (" .. tostring(err) ..
+        "). /kidsheal sigue funcionando." end,
+    optionsUnavailable = "Panel de opciones no disponible.",
+    help = "reset | clear <espacio> | set <espacio> <hechizo> | test | refresh | debug | options",
+
+    optionsTitle = "Ajustes de KidsHeal",
+    optionsNote = "Los cambios se aplican inmediatamente fuera de combate.",
+    barWidth = "Ancho de la barra",
+    barHeight = "Alto de la barra",
+    iconSize = "Tamaño de los iconos",
+    iconsRight = "Iconos a la derecha de las barras",
+    showHealthText = "Mostrar vida como texto",
+    nameFontSize = "Tamaño del nombre",
+    hpFontSize = "Tamaño de números (vida)",
+    buffSize = "Tamaño de los buffs",
+    slotCountLabel = "Número de iconos (solo esta especialización)",
+    blockSpacing = "Espacio entre personajes",
+    buffPadding = "Posición de superposición de buffs",
+    barPadding = "Margen interior del marco",
+    showAllBuffs = "Mostrar todos los buffs (en vez de solo HoTs/escudos)",
+    onlyMyBuffs = "Solo mis hechizos (solo HoTs/escudos lanzados por mí)",
+    showFocus = "Mostrar el objetivo de foco como barra propia",
+    ddLabel = "Elegir hechizo de una lista (elige espacio, luego hechizo):",
+    slotLabel = "Espacio:",
+    slotTaken = "(ocupado)",
+    spellLabel = "Hechizo:",
+    clearSlot = "— (vaciar espacio) —",
+    spellbook = "Grimorio",
+    languageLabel = "Idioma:",
+    languageAuto = "Idioma del cliente (automático)",
+  },
+}
+
+local LOCALE_NAMES = {
+  auto = "Client language (auto)",
+  enUS = "English",
+  deDE = "Deutsch",
+  esMX = "Español (Latinoamérica)",
+}
 
 ---------------------------------------------------------------------------
 
@@ -88,6 +255,33 @@ end
 
 local function Settings()
   return Profile().settings
+end
+
+local function ActiveLocale()
+  local want = (type(KidsHealDB) == "table") and KidsHealDB[CharKey()] and KidsHealDB[CharKey()].locale
+  if want and LOCALES[want] then return want end
+  local cl = GetLocale()
+  if LOCALES[cl] then return cl end
+  if cl == "deDE" then return "deDE" end
+  if cl == "esES" or cl == "esMX" then return "esMX" end
+  return "enUS"
+end
+
+local function L(key)
+  local loc = LOCALES[ActiveLocale()]
+  local v = loc[key] or LOCALES.enUS[key]
+  if type(v) == "function" then return v end
+  return v
+end
+
+local function LF(key, ...)
+  local v = L(key)
+  if type(v) == "function" then return v(...) end
+  return v
+end
+
+local function LMsg(key, ...)
+  print("|cff00ccffKidsHeal|r: " .. LF(key, ...))
 end
 
 local function SpellSlots()
@@ -250,13 +444,13 @@ end
 local function AssignEntry(slotIndex, rawEntry)
   if not rawEntry or not slotIndex then return end
   if InCombatLockdown() then
-    print("|cff00ccffKidsHeal|r: Nicht im Kampf möglich.")
+    LMsg("notInCombat")
     return
   end
   SpellSlots()[slotIndex] = rawEntry
   ApplySlotToAll(slotIndex)
   local r = ResolveEntry(rawEntry)
-  print("|cff00ccffKidsHeal|r: Slot " .. slotIndex .. " = " .. (r and r.name or "?"))
+  LMsg("slotSet", slotIndex, r and r.name or "?")
 end
 
 -- ------------------------------------------------------------------ updates
@@ -574,12 +768,11 @@ local pickSlot = nil
 
 local function StartSpellPick(slotIndex)
   if InCombatLockdown() then
-    print("|cff00ccffKidsHeal|r: Nicht im Kampf möglich.")
+    LMsg("notInCombat")
     return
   end
   pickSlot = slotIndex
-  print("|cff00ccffKidsHeal|r: Wirke jetzt einen Zauber - er landet in Slot " ..
-    slotIndex .. ". (Escape oder /kidsheal pick zum Abbrechen)")
+  LMsg("spellPickPrompt", slotIndex)
 end
 
 local function HandleSpellPick(unit, spellName, _, spellId)
@@ -591,7 +784,7 @@ local function HandleSpellPick(unit, spellName, _, spellId)
   local id = spellId
   if not id and name then id = select(7, GetSpellInfo(name)) end
   if not name or not id then
-    print("|cff00ccffKidsHeal|r: Zauber nicht erkannt. Nutze /kidsheal set.")
+    LMsg("spellNotRecognized")
     return
   end
   AssignEntry(slot, { kind = "spell", id = id, name = name })
@@ -814,14 +1007,14 @@ end
 
 local function SetSlotByName(slotIndex, name)
   if InCombatLockdown() then
-    print("|cff00ccffKidsHeal|r: Nicht im Kampf möglich.")
+    LMsg("notInCombat")
     return
   end
   local id, resolved = SpellIdByName(name)
   if resolved then
     AssignEntry(slotIndex, { kind = "spell", id = id, name = resolved })
   else
-    print("|cff00ccffKidsHeal|r: Zauber \"" .. name .. "\" nicht gefunden (exakt so schreiben wie im Zauberbuch).")
+    LMsg("spellNotFound", name)
   end
 end
 
@@ -835,7 +1028,7 @@ local panel, optionsError = pcall(function()
 
   local title = panel:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
   title:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -16)
-  title:SetText("KidsHeal Einstellungen")
+  title:SetText(L("optionsTitle"))
 
   -- scrollable area for all controls
   local scroll = CreateFrame("ScrollFrame", "KidsHealOptionsScroll", panel, "UIPanelScrollFrameTemplate")
@@ -847,9 +1040,49 @@ local panel, optionsError = pcall(function()
 
   local note = child:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
   note:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -6)
-  note:SetText("Änderungen greifen sofort außerhalb des Kampfes.")
+  note:SetText(L("optionsNote"))
 
-  local function MakeSlider(label, key, minV, maxV, step, y)
+  -- language dropdown ----------------------------------------------
+  local langLabel = child:CreateFontString(nil, "ARTWORK", "GameFontNormal")
+  langLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -70)
+  langLabel:SetText(L("languageLabel"))
+  local langDD = CreateFrame("Frame", "KidsHealLanguageDD", child, "UIDropDownMenuTemplate")
+  langDD:SetPoint("TOPLEFT", child, "TOPLEFT", 120, -65)
+  UIDropDownMenu_SetWidth(langDD, 200)
+  local langOrder = { "auto", "enUS", "deDE", "esMX" }
+  local RefreshOptionsText  -- forward declaration, defined further below
+  local function LangDDText()
+    local cur = Profile().locale or "auto"
+    if cur == "auto" then
+      UIDropDownMenu_SetText(langDD, L("languageAuto") .. " — " .. LOCALE_NAMES[ActiveLocale()])
+    else
+      UIDropDownMenu_SetText(langDD, LOCALE_NAMES[cur] or cur)
+    end
+  end
+  UIDropDownMenu_Initialize(langDD, function(self, level)
+    for _, code in ipairs(langOrder) do
+      local info = UIDropDownMenu_CreateInfo()
+      if code == "auto" then
+        info.text = L("languageAuto")
+      else
+        info.text = LOCALE_NAMES[code]
+      end
+      info.checked = ((Profile().locale or "auto") == code)
+      info.func = function()
+        Profile().locale = (code ~= "auto") and code or nil
+        RefreshOptionsText()
+        LangDDText()
+        RequestRebuild()
+      end
+      UIDropDownMenu_AddButton(info, level)
+    end
+  end)
+
+  -- controls: localized labels; the language dropdown rewrites all texts
+  local sliderLabels = {}
+  local checkboxLabels = {}
+
+  local function MakeSlider(labelKey, key, minV, maxV, step, y)
     local sl = CreateFrame("Slider", "KidsHealSlider" .. key, child, "OptionsSliderTemplate")
     sl:SetPoint("TOPLEFT", child, "TOPLEFT", 40, y)
     sl:SetMinMaxValues(minV, maxV)
@@ -857,9 +1090,15 @@ local panel, optionsError = pcall(function()
     if sl.SetObeyStepOnDrag then sl:SetObeyStepOnDrag(true) end
     sl:SetValue(Settings()[key])
     local textLbl = _G[sl:GetName() .. "Text"]
-    textLbl:SetText(label .. ": " .. Settings()[key])
-    _G[sl:GetName() .. "Low"]:SetText(tostring(minV))
-    _G[sl:GetName() .. "High"]:SetText(tostring(maxV))
+    local lowLbl = _G[sl:GetName() .. "Low"]
+    local highLbl = _G[sl:GetName() .. "High"]
+    sliderLabels[key] = { slider = sl, text = textLbl, labelKey = labelKey }
+    local function LabelText(v)
+      return L(labelKey) .. ": " .. (key == "slotCount" and math.floor(v) or v)
+    end
+    textLbl:SetText(LabelText(Settings()[key]))
+    lowLbl:SetText(tostring(minV))
+    highLbl:SetText(tostring(maxV))
     if key == "slotCount" then
       -- per-spec: slider shows/edits the current specialization's count.
       -- the default template centers the label over the slider, which would
@@ -868,15 +1107,15 @@ local panel, optionsError = pcall(function()
       textLbl:SetPoint("BOTTOMLEFT", sl, "TOPLEFT", 0, 3)
       textLbl:SetJustifyH("LEFT")
       sl:SetValue(SlotCount())
-      textLbl:SetText(label .. ": " .. SlotCount())
+      textLbl:SetText(LabelText(SlotCount()))
       sl:SetScript("OnValueChanged", function(_, v)
         SetSlotCount(v)
-        textLbl:SetText(label .. ": " .. math.floor(v))
+        textLbl:SetText(LabelText(v))
       end)
     else
       sl:SetScript("OnValueChanged", function(_, v)
         Settings()[key] = v
-        textLbl:SetText(label .. ": " .. v)
+        textLbl:SetText(LabelText(v))
       end)
     end
     sl:SetScript("OnMouseUp", function()
@@ -885,11 +1124,12 @@ local panel, optionsError = pcall(function()
     return sl
   end
 
-  local function MakeCheckbox(label, key, y)
+  local function MakeCheckbox(labelKey, key, y)
     local cb = CreateFrame("CheckButton", "KidsHealCheck" .. key, child, "UICheckButtonTemplate")
     cb:SetPoint("TOPLEFT", child, "TOPLEFT", 40, y)
     local txt = _G[cb:GetName() .. "Text"]
-    txt:SetText(label)
+    txt:SetText(L(labelKey))
+    checkboxLabels[key] = { text = txt, labelKey = labelKey }
     txt:SetFontObject("GameFontNormalLarge")
     cb:SetChecked(Settings()[key])
     cb:SetScript("OnClick", function(self)
@@ -899,43 +1139,43 @@ local panel, optionsError = pcall(function()
     return cb
   end
 
-  MakeSlider("Balkenbreite", "barWidth", 50, 400, 10, -80)
-  MakeSlider("Balkenhöhe", "barHeight", 24, 80, 2, -130)
-  MakeSlider("Icongröße", "iconSize", 20, 80, 2, -180)
-  MakeCheckbox("Icons rechts neben den Balken", "iconsRight", -240)
-  MakeCheckbox("Lebenspunkte als Text anzeigen", "showHealthText", -280)
-  MakeSlider("Namensgröße", "nameFontSize", 8, 24, 1, -330)
-  MakeSlider("Zahlengröße (HP)", "hpFontSize", 8, 24, 1, -380)
-  MakeSlider("Buffgröße", "buffSize", 12, 32, 2, -430)
-  slotCountSlider = MakeSlider("Anzahl Icons (nur diese Spezialisierung)", "slotCount", 1, 10, 1, -480)
-  MakeSlider("Abstand zwischen Charakteren", "blockSpacing", 0, 30, 1, -530)
-  MakeSlider("Buff-Überlappposition", "buffPadding", -10, 20, 1, -580)
-  MakeSlider("Rahmenabstand (Padding)", "barPadding", 0, 16, 1, -630)
-  MakeCheckbox("Alle Buffs zeigen (statt nur HoTs/Schilde)", "showAllBuffs", -700)
-  MakeCheckbox("Nur meine Zauber zeigen (nur HoTs/Schilde, die ich selbst gecastet habe)", "onlyMyBuffs", -740)
-  MakeCheckbox("Fokus-Ziel als eigene Leiste zeigen", "showFocus", -780)
+  MakeSlider("barWidth", "barWidth", 50, 400, 10, -130)
+  MakeSlider("barHeight", "barHeight", 24, 80, 2, -180)
+  MakeSlider("iconSize", "iconSize", 20, 80, 2, -230)
+  MakeCheckbox("iconsRight", "iconsRight", -290)
+  MakeCheckbox("showHealthText", "showHealthText", -330)
+  MakeSlider("nameFontSize", "nameFontSize", 8, 24, 1, -380)
+  MakeSlider("hpFontSize", "hpFontSize", 8, 24, 1, -430)
+  MakeSlider("buffSize", "buffSize", 12, 32, 2, -480)
+  slotCountSlider = MakeSlider("slotCountLabel", "slotCount", 1, 10, 1, -530)
+  MakeSlider("blockSpacing", "blockSpacing", 0, 30, 1, -580)
+  MakeSlider("buffPadding", "buffPadding", -10, 20, 1, -630)
+  MakeSlider("barPadding", "barPadding", 0, 16, 1, -680)
+  MakeCheckbox("showAllBuffs", "showAllBuffs", -750)
+  MakeCheckbox("onlyMyBuffs", "onlyMyBuffs", -790)
+  MakeCheckbox("showFocus", "showFocus", -830)
 
   -- slot + spell dropdown --------------------------------------------
   local ddLabel = child:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-  ddLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -800)
-  ddLabel:SetText("Zauber per Liste wählen (Slot auswählen, dann Zauber):")
+  ddLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -850)
+  ddLabel:SetText(L("ddLabel"))
 
   local slotLabel = child:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  slotLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 40, -830)
-  slotLabel:SetText("Slot:")
+  slotLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 40, -880)
+  slotLabel:SetText(L("slotLabel"))
 
   local slotDD = CreateFrame("Frame", "KidsHealSlotDD", child, "UIDropDownMenuTemplate")
   slotDD:SetPoint("TOPLEFT", child, "TOPLEFT", 80, -825)
   UIDropDownMenu_SetWidth(slotDD, 80)
   local curSlot = 1
   local function SlotDDText()
-    UIDropDownMenu_SetText(slotDD, "Slot " .. curSlot ..
-      (SpellSlots()[curSlot] and " (belegt)" or ""))
+    UIDropDownMenu_SetText(slotDD, L("slotLabel") .. " " .. curSlot ..
+      (SpellSlots()[curSlot] and " " .. L("slotTaken") or ""))
   end
   UIDropDownMenu_Initialize(slotDD, function(self, level)
     for i = 1, Settings().slotCount do
       local info = UIDropDownMenu_CreateInfo()
-      info.text = "Slot " .. i
+      info.text = L("slotLabel") .. " " .. i
       info.checked = (i == curSlot)
       info.func = function()
         curSlot = i
@@ -947,28 +1187,28 @@ local panel, optionsError = pcall(function()
   SlotDDText()
 
   local spellLabel = child:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  spellLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 220, -830)
-  spellLabel:SetText("Zauber:")
+  spellLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 220, -880)
+  spellLabel:SetText(L("spellLabel"))
 
   local spellDD = CreateFrame("Frame", "KidsHealSpellDD", child, "UIDropDownMenuTemplate")
-  spellDD:SetPoint("TOPLEFT", child, "TOPLEFT", 280, -825)
+  spellDD:SetPoint("TOPLEFT", child, "TOPLEFT", 280, -875)
   UIDropDownMenu_SetWidth(spellDD, 180)
   UIDropDownMenu_Initialize(spellDD, function(self, level)
     if level == 1 then
       local info = UIDropDownMenu_CreateInfo()
-      info.text = "— (Slot leeren) —"
+      info.text = L("clearSlot")
       info.notCheckable = true
       info.func = function()
         if not InCombatLockdown() then
           SpellSlots()[curSlot] = nil
           ApplySlotToAll(curSlot)
-          print("|cff00ccffKidsHeal|r: Slot " .. curSlot .. " geleert.")
+          LMsg("slotCleared", curSlot)
         end
         SlotDDText()
       end
       UIDropDownMenu_AddButton(info, level)
       info = UIDropDownMenu_CreateInfo()
-      info.text = "Zauberbuch"
+      info.text = L("spellbook")
       info.notCheckable = true
       info.hasArrow = true
       info.value = "BOOK"
@@ -995,13 +1235,31 @@ local panel, optionsError = pcall(function()
     end
   end)
 
+  -- rewrite all localized texts after a language switch
+  function RefreshOptionsText()
+    title:SetText(L("optionsTitle"))
+    note:SetText(L("optionsNote"))
+    langLabel:SetText(L("languageLabel"))
+    for key, ref in pairs(sliderLabels) do
+      local v = (key == "slotCount") and SlotCount() or Settings()[key]
+      ref.text:SetText(L(ref.labelKey) .. ": " ..
+        (key == "slotCount" and math.floor(v) or v))
+    end
+    for _, ref in pairs(checkboxLabels) do
+      ref.text:SetText(L(ref.labelKey))
+    end
+    ddLabel:SetText(L("ddLabel"))
+    slotLabel:SetText(L("slotLabel"))
+    spellLabel:SetText(L("spellLabel"))
+    SlotDDText()
+  end
+
   InterfaceOptions_AddCategory(panel)
   return panel
 end)
 
 if not panel then
-  print("|cff00ccffKidsHeal|r: Optionspanel konnte nicht erstellt werden (" ..
-    tostring(optionsError) .. "). /kidsheal funktioniert trotzdem.")
+  print("|cff00ccffKidsHeal|r: " .. LF("optionsBroken", optionsError))
 end
 
 -- ------------------------------------------------------------------ events
@@ -1013,7 +1271,7 @@ container:SetScript("OnEvent", function(_, event, unit, a1, a2, a3, a4)
     if type(slotCountSlider) == "table" then
       slotCountSlider:SetValue(SlotCount())
       local textLbl = _G[slotCountSlider:GetName() .. "Text"]
-      textLbl:SetText("Anzahl Icons (nur diese Spezialisierung): " .. SlotCount())
+      textLbl:SetText(L("slotCountLabel") .. ": " .. SlotCount())
     end
   elseif event == "PLAYER_ENTERING_WORLD" or event == "GROUP_ROSTER_UPDATE"
       or event == "PLAYER_FOCUS_CHANGED" then
@@ -1075,7 +1333,7 @@ end)
 
 -- initial layout
 SyncHandleWidth()
-print("|cff00ccffKidsHeal|r v" .. ADDON_VERSION .. " geladen. /kidsheal für Hilfe.")
+print("|cff00ccffKidsHeal|r " .. LF("loaded", ADDON_VERSION))
 
 -- ------------------------------------------------------------------ slash
 SLASH_KIDSHEAL1 = "/kidsheal"
@@ -1086,19 +1344,19 @@ SlashCmdList["KIDSHEAL"] = function(msg)
     local p = Profile()
     p.x, p.y = DEFAULT_POS.x, DEFAULT_POS.y
     ApplyPosition()
-    print("|cff00ccffKidsHeal|r: Position zurückgesetzt (oben links).")
+    LMsg("positionReset")
   elseif cmd == "clear" then
     local n = tonumber(arg)
     if n and n >= 1 and n <= SlotCount() then
       if not InCombatLockdown() then
         SpellSlots()[n] = nil
         ApplySlotToAll(n)
-        print("|cff00ccffKidsHeal|r: Slot " .. n .. " geleert.")
+        LMsg("slotCleared", n)
       else
-        print("|cff00ccffKidsHeal|r: Nicht im Kampf möglich.")
+        LMsg("notInCombat")
       end
     else
-      print("|cff00ccffKidsHeal|r: /kidsheal clear 1.." .. SlotCount())
+      LMsg("clearUsage", SlotCount())
     end
   elseif cmd == "set" then
     local n = tonumber(arg)
@@ -1107,7 +1365,7 @@ SlashCmdList["KIDSHEAL"] = function(msg)
     if n and name and n >= 1 and n <= SlotCount() then
       SetSlotByName(n, name)
     else
-      print("|cff00ccffKidsHeal|r: /kidsheal set <slot> <Zaubername>, z.B. /kidsheal set 2 [Blitz des Lichts]")
+      LMsg("setUsage")
     end
   elseif cmd == "pick" then
     local n = tonumber(arg)
@@ -1115,12 +1373,11 @@ SlashCmdList["KIDSHEAL"] = function(msg)
       StartSpellPick(n)
     else
       pickSlot = nil
-      print("|cff00ccffKidsHeal|r: Zauber-Auswahl abgebrochen.")
+      LMsg("spellPickCancelled")
     end
   elseif cmd == "debug" then
     DEBUG = not DEBUG
-    print("|cff00ccffKidsHeal|r: Debug " .. (DEBUG and "AN" or "AUS") ..
-      ". Halte einen Zauber im Cursor und schaue in den Chat.")
+    LMsg("debugState", DEBUG)
   elseif cmd == "test" then
     for _, m in pairs(memberFrames) do
       m.healthBar:SetValue(math.random(30, 100) / 100 * math.max(UnitHealthMax(m.unit), 1))
@@ -1128,15 +1385,15 @@ SlashCmdList["KIDSHEAL"] = function(msg)
   elseif cmd == "refresh" then
     RequestRebuild()
     SyncHandleWidth()
-    print("|cff00ccffKidsHeal|r neu aufgebaut.")
+    LMsg("rebuilt")
   elseif cmd == "options" or cmd == "config" then
     if type(panel) == "table" and panel.name then
       InterfaceOptionsFrame_OpenToCategory(panel)
       InterfaceOptionsFrame_OpenToCategory(panel)
     else
-      print("|cff00ccffKidsHeal|r: Optionspanel nicht verfügbar.")
+      LMsg("optionsUnavailable")
     end
   else
-    print("|cff00ccffKidsHeal|r: reset | clear <slot> | set <slot> <Zauber> | test | refresh | debug | options")
+    LMsg("help")
   end
 end

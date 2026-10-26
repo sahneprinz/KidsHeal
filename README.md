@@ -1,4 +1,4 @@
-# KidsHeal v1.3.43
+# KidsHeal v1.4.0
 
 **KidsHeal is a World of Warcraft: Legion addon that aims to make healing a party easy — at the cost of efficiency.**
 
@@ -36,11 +36,13 @@ KidsHeal follows the old washing machine salesman's approach: *"Even a child can
 - `/kidsheal debug` — toggle debug output
 - `/kidsheal options` — open the options panel
 
+- Works in English, German, and Spanish (LatAm) - language selectable in the options or auto-detected from the client.
 ## Notes
 - Works with any client language (spells/items stored by ID).
 - Trinket caveat: items are used on the member via `/use [@unit] <item>`. Items that only ever work on yourself will still just work on yourself — that's a game rule, not an addon bug.
 - Drag-and-drop from the spellbook is supported, but on some clients unreliable — the click-and-cast method above is the recommended way.
 - Assigning spells is disabled in combat (Blizzard rule).
+- Language: English, Deutsch, Español (Latinoamérica) - choose in the options panel (or it follows your client language).
 
 ## License
 KidsHeal is released under the [MIT License](LICENSE).
