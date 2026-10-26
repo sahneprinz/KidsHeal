@@ -25,7 +25,7 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local ADDON_VERSION = "1.4.1"
+local ADDON_VERSION = "1.4.2"
 
 local DEFAULTS = {
   barWidth = 120,
@@ -103,6 +103,8 @@ local LOCALES = {
     spellbook = "Spellbook",
     languageLabel = "Language:",
     languageAuto = "Client language (auto)",
+    mmTooltipLine1 = "Click: show/hide bars",
+    mmTooltipLine2 = "Right-click: settings",
   },
   deDE = {
     notInCombat = "Nicht im Kampf möglich.",
@@ -155,6 +157,8 @@ local LOCALES = {
     spellbook = "Zauberbuch",
     languageLabel = "Sprache:",
     languageAuto = "Client-Sprache (automatisch)",
+    mmTooltipLine1 = "Klick: Leisten zeigen/verstecken",
+    mmTooltipLine2 = "Rechtsklick: Einstellungen",
   },
   esMX = {
     notInCombat = "No es posible en combate.",
@@ -207,6 +211,8 @@ local LOCALES = {
     spellbook = "Grimorio",
     languageLabel = "Idioma:",
     languageAuto = "Idioma del cliente (automático)",
+    mmTooltipLine1 = "Clic: mostrar/ocultar barras",
+    mmTooltipLine2 = "Clic derecho: ajustes",
   },
 }
 
@@ -958,6 +964,8 @@ EnableDrag(handle)
 
 container:SetMovable(true)
 
+local panel  -- options panel frame (created further below in a pcall)
+
 -- ------------------------------------------------------------------ minimap button
 -- standard LDB + LibDBIcon approach (same as HealBot): the library draws
 -- the classic round button, handles circular dragging and saves the
@@ -974,12 +982,18 @@ if ldb and iconLib then
       if button == "LeftButton" then
         SetSpecEnabled(not SpecEnabled())
         ApplySpecEnabled()
+      elseif button == "RightButton" then
+        if type(panel) == "table" and panel.name then
+          InterfaceOptionsFrame_OpenToCategory(panel)
+          InterfaceOptionsFrame_OpenToCategory(panel)
+        end
       end
     end,
     OnTooltipShow = function(tooltip)
       if not tooltip or not tooltip.AddLine then return end
       tooltip:AddLine("KidsHeal")
-      tooltip:AddLine("Klick: Leisten zeigen/verstecken", 1, 1, 1)
+      tooltip:AddLine(L("mmTooltipLine1"), 1, 1, 1)
+      tooltip:AddLine(L("mmTooltipLine2"), 1, 1, 1)
     end,
   })
 
@@ -1037,7 +1051,8 @@ end
 -- must keep working (bars, clicks, slash command) instead of dying at load
 local slotCountSlider = nil
 local refreshLangDD = nil
-local panel, optionsError = pcall(function()
+local optionsError
+panel = select(2, pcall(function()
   local panel = CreateFrame("Frame", "KidsHealOptionsPanel", UIParent)
   panel.name = "KidsHeal"
 
@@ -1050,7 +1065,7 @@ local panel, optionsError = pcall(function()
   scroll:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -48)
   scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -32, 16)
   local child = CreateFrame("Frame", "KidsHealOptionsChild", scroll)
-  child:SetSize(1, 900)
+  child:SetSize(1, 1010)
   scroll:SetScrollChild(child)
 
   local note = child:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
@@ -1173,15 +1188,15 @@ local panel, optionsError = pcall(function()
 
   -- slot + spell dropdown --------------------------------------------
   local ddLabel = child:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-  ddLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -850)
+  ddLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -910)
   ddLabel:SetText(L("ddLabel"))
 
   local slotLabel = child:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  slotLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 40, -880)
+  slotLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 40, -945)
   slotLabel:SetText(L("slotLabel"))
 
   local slotDD = CreateFrame("Frame", "KidsHealSlotDD", child, "UIDropDownMenuTemplate")
-  slotDD:SetPoint("TOPLEFT", child, "TOPLEFT", 80, -825)
+  slotDD:SetPoint("TOPLEFT", child, "TOPLEFT", 90, -940)
   UIDropDownMenu_SetWidth(slotDD, 80)
   local curSlot = 1
   local function SlotDDText()
@@ -1203,11 +1218,11 @@ local panel, optionsError = pcall(function()
   SlotDDText()
 
   local spellLabel = child:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  spellLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 220, -880)
+  spellLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 220, -945)
   spellLabel:SetText(L("spellLabel"))
 
   local spellDD = CreateFrame("Frame", "KidsHealSpellDD", child, "UIDropDownMenuTemplate")
-  spellDD:SetPoint("TOPLEFT", child, "TOPLEFT", 280, -875)
+  spellDD:SetPoint("TOPLEFT", child, "TOPLEFT", 290, -940)
   UIDropDownMenu_SetWidth(spellDD, 180)
   UIDropDownMenu_Initialize(spellDD, function(self, level)
     if level == 1 then
@@ -1230,12 +1245,14 @@ local panel, optionsError = pcall(function()
       info.value = "BOOK"
       UIDropDownMenu_AddButton(info, level)
     elseif level == 2 and UIDROPDOWNMENU_MENU_VALUE == "BOOK" then
-      for book = 1, 2 do
+      -- Legion's GetSpellBookItemInfo takes a string book type, not a number
+      for _, bookType in ipairs({ "spell", "pet" }) do
         local i = 1
         while true do
-          local name, _, _, _, _, _, spellId = GetSpellBookItemInfo(i, book)
+          local name, _, _, _, _, _, spellId, _, isPassive = GetSpellBookItemInfo(i, bookType)
           if not name then break end
-          if spellId and IsSpellKnown(spellId) then
+          if spellId and not isPassive and IsSpellKnown(spellId)
+            and IsSpellKnown(spellId) ~= false then
             local info = UIDropDownMenu_CreateInfo()
             info.text = name
             info.notCheckable = true
@@ -1272,7 +1289,7 @@ local panel, optionsError = pcall(function()
 
   InterfaceOptions_AddCategory(panel)
   return panel
-end)
+end))
 
 if not panel then
   print("|cff00ccffKidsHeal|r: " .. LF("optionsBroken", optionsError))
