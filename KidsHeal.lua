@@ -25,7 +25,7 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local ADDON_VERSION = "1.5.1"
+local ADDON_VERSION = "1.5.2"
 
 local DEFAULTS = {
   barWidth = 120,
@@ -845,7 +845,7 @@ local function CreateMember(unitId, index)
   if portraitW > 0 then
     local pf = CreateFrame("Frame", nil, f)
     pf:SetSize(portraitW, portraitW)
-    pf:SetPoint("TOPLEFT", f, "TOPLEFT", s.barPadding, -s.barPadding)
+    -- placed later, anchored to the bar so both share the same top edge
     pf.bg = pf:CreateTexture(nil, "BACKGROUND")
     pf.bg:SetAllPoints()
     pf.bg:SetColorTexture(0.08, 0.08, 0.08, 1)
@@ -857,12 +857,16 @@ local function CreateMember(unitId, index)
 
   local hb = CreateFrame("StatusBar", nil, f)
   hb:SetSize(s.barWidth - 8, s.barHeight - 8)
-  if portraitW > 0 then
-    hb:SetPoint("TOPLEFT", f, "TOPLEFT", s.barPadding + portraitW + 4, -s.barPadding)
-  elseif s.iconsRight then
+  -- the bar's vertical anchor never depends on the portrait setting:
+  -- icons-right centers it in the box, the below layout pins it to the top
+  if s.iconsRight then
     hb:SetPoint("LEFT", f, "LEFT", s.barPadding, 0)
   else
     hb:SetPoint("TOP", f, "TOP", 0, -s.barPadding)
+  end
+  if portraitW > 0 then
+    -- portrait sits left of the bar, top edges aligned (so: same Y line)
+    member.portraitAnchor = { pf = member.portrait, x = portraitW }
   end
   hb:SetStatusBarTexture("Interface\\Buttons\\WHITE8X8")
   hb:SetMinMaxValues(0, 1)
@@ -871,6 +875,10 @@ local function CreateMember(unitId, index)
   hb.bg:SetAllPoints()
   hb.bg:SetTexture("Interface\\Buttons\\WHITE8X8")
   hb.bg:SetVertexColor(0.08, 0.08, 0.08)
+
+  if portraitW > 0 then
+    member.portrait:SetPoint("TOPRIGHT", hb, "TOPLEFT", -4, 0)
+  end
 
   hb.nameText = hb:CreateFontString(nil, "OVERLAY", "GameFontNormalLarge")
   hb.nameText:SetPoint("TOPLEFT", hb, "TOPLEFT", 6, -4)
@@ -915,10 +923,10 @@ local function CreateMember(unitId, index)
       -- 6px past the bar's right edge (portraits shift the bar; the row
       -- follows it either way)
       -- row starts 6px past the bar's RIGHT edge and runs right;
-      -- anchoring to the bar (not the box) keeps it aligned whether
-      -- or not a portrait shifted the bar
+      -- icons are centered on the bar's vertical middle (their center
+      -- Y equals the bar's center Y, whatever the icon size)
       local xOff = 6 + (i - 1) * (s.iconSize + s.iconSpacing)
-      local yOff = -((blockH - s.iconSize) / 2)
+      local yOff = -(((s.barHeight - 8) - s.iconSize) / 2)
       btn:SetPoint("TOPLEFT", hb, "TOPRIGHT", xOff, yOff)
     else
       -- row centered under the health bar (not the wider box)
