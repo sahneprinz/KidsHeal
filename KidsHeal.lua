@@ -25,7 +25,7 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local ADDON_VERSION = "1.4.2"
+local ADDON_VERSION = "1.4.3"
 
 local DEFAULTS = {
   barWidth = 120,
@@ -1050,7 +1050,7 @@ end
 -- wrapped in pcall: if anything here fails on an older client, the addon
 -- must keep working (bars, clicks, slash command) instead of dying at load
 local slotCountSlider = nil
-local refreshLangDD = nil
+local refreshOptionsText = nil
 local optionsError
 panel = select(2, pcall(function()
   local panel = CreateFrame("Frame", "KidsHealOptionsPanel", UIParent)
@@ -1089,7 +1089,6 @@ panel = select(2, pcall(function()
       UIDropDownMenu_SetText(langDD, LOCALE_NAMES[cur] or cur)
     end
   end
-  refreshLangDD = LangDDText
   UIDropDownMenu_Initialize(langDD, function(self, level)
     for _, code in ipairs(langOrder) do
       local info = UIDropDownMenu_CreateInfo()
@@ -1160,7 +1159,7 @@ panel = select(2, pcall(function()
     cb:SetPoint("TOPLEFT", child, "TOPLEFT", 40, y)
     local txt = _G[cb:GetName() .. "Text"]
     txt:SetText(L(labelKey))
-    checkboxLabels[key] = { text = txt, labelKey = labelKey }
+    checkboxLabels[key] = { checkbox = cb, text = txt, labelKey = labelKey }
     txt:SetFontObject("GameFontNormalLarge")
     cb:SetChecked(Settings()[key])
     cb:SetScript("OnClick", function(self)
@@ -1268,24 +1267,29 @@ panel = select(2, pcall(function()
     end
   end)
 
-  -- rewrite all localized texts after a language switch
+  -- rewrite all localized texts after a language switch, and re-read every
+  -- control's saved value (the panel is built before SavedVariables load,
+  -- so on login it must be re-synced once the saved data is available)
   function RefreshOptionsText()
     title:SetText(L("optionsTitle"))
     note:SetText(L("optionsNote"))
     langLabel:SetText(L("languageLabel"))
     for key, ref in pairs(sliderLabels) do
       local v = (key == "slotCount") and SlotCount() or Settings()[key]
+      ref.slider:SetValue(v)
       ref.text:SetText(L(ref.labelKey) .. ": " ..
         (key == "slotCount" and math.floor(v) or v))
     end
-    for _, ref in pairs(checkboxLabels) do
+    for key, ref in pairs(checkboxLabels) do
+      ref.checkbox:SetChecked(Settings()[key] or false)
       ref.text:SetText(L(ref.labelKey))
     end
     ddLabel:SetText(L("ddLabel"))
-    slotLabel:SetText(L("slotLabel"))
-    spellLabel:SetText(L("spellLabel"))
+    slotLabel.SetText(L("slotLabel"))
+    spellLabel.SetText(L("spellLabel"))
     SlotDDText()
   end
+  refreshOptionsText = RefreshOptionsText
 
   InterfaceOptions_AddCategory(panel)
   return panel
@@ -1311,9 +1315,9 @@ container:SetScript("OnEvent", function(_, event, unit, a1, a2, a3, a4)
     if event == "PLAYER_ENTERING_WORLD" then
       ApplyPosition()
       ApplySpecEnabled()
-      -- SavedVariables are loaded by now: re-sync the language dropdown
-      -- (it was built before KidsHealDB existed)
-      if type(refreshLangDD) == "function" then refreshLangDD() end
+      -- SavedVariables are loaded by now: the options panel was built
+      -- before they existed, so re-sync all its texts AND control values
+      if refreshOptionsText then refreshOptionsText() end
     end
     if event == "PLAYER_FOCUS_CHANGED" then
       -- refresh visibility/values, then re-stack the bars
