@@ -25,7 +25,7 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local ADDON_VERSION = "1.5.0"
+local ADDON_VERSION = "1.5.1"
 
 local DEFAULTS = {
   barWidth = 120,
@@ -858,11 +858,7 @@ local function CreateMember(unitId, index)
   local hb = CreateFrame("StatusBar", nil, f)
   hb:SetSize(s.barWidth - 8, s.barHeight - 8)
   if portraitW > 0 then
-    if s.iconsRight then
-      hb:SetPoint("TOPLEFT", f, "TOPLEFT", s.barPadding + portraitW + 4, -s.barPadding)
-    else
-      hb:SetPoint("TOPLEFT", f, "TOPLEFT", s.barPadding + portraitW + 4, -s.barPadding)
-    end
+    hb:SetPoint("TOPLEFT", f, "TOPLEFT", s.barPadding + portraitW + 4, -s.barPadding)
   elseif s.iconsRight then
     hb:SetPoint("LEFT", f, "LEFT", s.barPadding, 0)
   else
@@ -914,13 +910,21 @@ local function CreateMember(unitId, index)
     local btn = CreateFrame("Button", nil, f, "SecureActionButtonTemplate")
     btn:SetSize(s.iconSize, s.iconSize)
     if s.iconsRight then
-      local xOff = s.barWidth + 6 + (i - 1) * (s.iconSize + s.iconSpacing)
+      -- anchor the row to the RIGHT END of the health bar: icon i sits
+      -- (i-1) icon-widths to the left of the row's right edge, which is
+      -- 6px past the bar's right edge (portraits shift the bar; the row
+      -- follows it either way)
+      -- row starts 6px past the bar's RIGHT edge and runs right;
+      -- anchoring to the bar (not the box) keeps it aligned whether
+      -- or not a portrait shifted the bar
+      local xOff = 6 + (i - 1) * (s.iconSize + s.iconSpacing)
       local yOff = -((blockH - s.iconSize) / 2)
-      btn:SetPoint("TOPLEFT", f, "TOPLEFT", xOff, yOff)
+      btn:SetPoint("TOPLEFT", hb, "TOPRIGHT", xOff, yOff)
     else
+      -- row centered under the health bar (not the wider box)
       local xOff = -((n - 1) * (s.iconSize + s.iconSpacing)) / 2
         + (i - 1) * (s.iconSize + s.iconSpacing)
-      btn:SetPoint("TOP", f, "TOP", xOff, -(s.barHeight + s.barPadding))
+      btn:SetPoint("TOP", hb, "TOP", xOff, -(s.barHeight + s.barPadding))
     end
 
     btn.isKidSlot = true
