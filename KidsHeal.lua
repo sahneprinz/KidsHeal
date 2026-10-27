@@ -25,7 +25,7 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local ADDON_VERSION = "1.5.2"
+local ADDON_VERSION = "1.5.3"
 
 local DEFAULTS = {
   barWidth = 120,
@@ -858,11 +858,16 @@ local function CreateMember(unitId, index)
   local hb = CreateFrame("StatusBar", nil, f)
   hb:SetSize(s.barWidth - 8, s.barHeight - 8)
   -- the bar's vertical anchor never depends on the portrait setting:
-  -- icons-right centers it in the box, the below layout pins it to the top
+  -- icons-right centers it in the box, the below layout pins it to the top.
+  -- horizontally, the bar shifts right by the portrait width so the
+  -- portrait sits INSIDE the box (with background) instead of hanging
+  -- off its left edge
+  local px = 0
+  if portraitW > 0 then px = portraitW + 4 end
   if s.iconsRight then
-    hb:SetPoint("LEFT", f, "LEFT", s.barPadding, 0)
+    hb:SetPoint("LEFT", f, "LEFT", s.barPadding + px, 0)
   else
-    hb:SetPoint("TOP", f, "TOP", 0, -s.barPadding)
+    hb:SetPoint("TOP", f, "TOP", px / 2, -s.barPadding)
   end
   if portraitW > 0 then
     -- portrait sits left of the bar, top edges aligned (so: same Y line)
