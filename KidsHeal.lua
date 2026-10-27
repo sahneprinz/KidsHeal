@@ -25,7 +25,7 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local ADDON_VERSION = "1.4.4"
+local ADDON_VERSION = "1.5.0"
 
 local DEFAULTS = {
   barWidth = 120,
@@ -45,6 +45,7 @@ local DEFAULTS = {
   showAllBuffs = false,
   onlyMyBuffs = false,
   showFocus = true,
+  showPortraits = false,
   maxBuffs = 10,
 }
 
@@ -84,6 +85,7 @@ local LOCALES = {
     barHeight = "Bar height",
     iconSize = "Icon size",
     iconsRight = "Icons to the right of the bars",
+    showPortraits = "Show character faces next to the bars",
     showHealthText = "Show health points as text",
     nameFontSize = "Name size",
     hpFontSize = "Number size (HP)",
@@ -138,6 +140,7 @@ local LOCALES = {
     barHeight = "Balkenhöhe",
     iconSize = "Icongröße",
     iconsRight = "Icons rechts neben den Balken",
+    showPortraits = "Charaktergesichter neben den Balken zeigen",
     showHealthText = "Lebenspunkte als Text anzeigen",
     nameFontSize = "Namensgröße",
     hpFontSize = "Zahlengröße (HP)",
@@ -192,6 +195,7 @@ local LOCALES = {
     barHeight = "Alto de la barra",
     iconSize = "Tamaño de los iconos",
     iconsRight = "Iconos a la derecha de las barras",
+    showPortraits = "Mostrar rostros de los personajes junto a las barras",
     showHealthText = "Mostrar vida como texto",
     nameFontSize = "Tamaño del nombre",
     hpFontSize = "Tamaño de números (vida)",
@@ -359,17 +363,24 @@ local function SetSlotCount(n)
 end
 
 -- ------------------------------------------------------------------ layout
+local function PortraitSize()
+  local s = Settings()
+  return s.showPortraits and (s.barHeight - 8) or 0
+end
+
 local function BlockSize()
   local s = Settings()
   local blockW, blockH
   local pad = s.barPadding
   local n = SlotCount()
   local iconRowW = n * s.iconSize + (n - 1) * s.iconSpacing
+  local portraitW = PortraitSize()
+  if portraitW > 0 then portraitW = portraitW + 4 end
   if s.iconsRight then
-    blockW = s.barWidth + pad + iconRowW + pad
+    blockW = portraitW + s.barWidth + pad + iconRowW + pad
     blockH = math.max(s.barHeight, s.iconSize) + pad * 2
   else
-    blockW = math.max(s.barWidth, iconRowW + pad * 2)
+    blockW = math.max(portraitW + s.barWidth, iconRowW + pad * 2)
     blockH = s.barHeight + s.iconSize + pad * 2
   end
   return blockW, blockH
@@ -482,6 +493,9 @@ local function UpdateHealth(member)
     return
   end
   f:Show()
+  if member.portrait then
+    SetPortraitTexture(member.portrait.portrait, unit)
+  end
   local hp, hpMax = UnitHealth(unit), UnitHealthMax(unit)
   member.healthBar:SetMinMaxValues(0, math.max(hpMax, 1))
   member.healthBar:SetValue(hp)
@@ -823,9 +837,33 @@ local function CreateMember(unitId, index)
   f.bg:SetAllPoints()
   f.bg:SetColorTexture(0, 0, 0, 0.55)
 
+  -- optional 3D portrait left of the health bar
+  local portraitW = PortraitSize()
+  local member = {
+    unit = unitId, main = f, buttons = {}, buffFrames = {},
+  }
+  if portraitW > 0 then
+    local pf = CreateFrame("Frame", nil, f)
+    pf:SetSize(portraitW, portraitW)
+    pf:SetPoint("TOPLEFT", f, "TOPLEFT", s.barPadding, -s.barPadding)
+    pf.bg = pf:CreateTexture(nil, "BACKGROUND")
+    pf.bg:SetAllPoints()
+    pf.bg:SetColorTexture(0.08, 0.08, 0.08, 1)
+    pf.portrait = pf:CreateTexture(nil, "ARTWORK")
+    pf.portrait:SetAllPoints()
+    member.portrait = pf
+    SetPortraitTexture(pf.portrait, unitId)
+  end
+
   local hb = CreateFrame("StatusBar", nil, f)
   hb:SetSize(s.barWidth - 8, s.barHeight - 8)
-  if s.iconsRight then
+  if portraitW > 0 then
+    if s.iconsRight then
+      hb:SetPoint("TOPLEFT", f, "TOPLEFT", s.barPadding + portraitW + 4, -s.barPadding)
+    else
+      hb:SetPoint("TOPLEFT", f, "TOPLEFT", s.barPadding + portraitW + 4, -s.barPadding)
+    end
+  elseif s.iconsRight then
     hb:SetPoint("LEFT", f, "LEFT", s.barPadding, 0)
   else
     hb:SetPoint("TOP", f, "TOP", 0, -s.barPadding)
@@ -845,11 +883,9 @@ local function CreateMember(unitId, index)
   hb.healthText:SetPoint("BOTTOMRIGHT", hb, "BOTTOMRIGHT", -6, 4)
   hb.healthText:SetFont(STANDARD_TEXT_FONT, s.hpFontSize, "OUTLINE")
 
-  local member = {
-    unit = unitId, main = f,
-    healthBar = hb, nameText = hb.nameText, healthText = hb.healthText,
-    buttons = {}, buffFrames = {},
-  }
+  member.healthBar = hb
+  member.nameText = hb.nameText
+  member.healthText = hb.healthText
 
   -- buff row under the health bar -----------------------------------
   local maxB = s.maxBuffs
@@ -1065,7 +1101,7 @@ panel = select(2, pcall(function()
   scroll:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -48)
   scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -32, 16)
   local child = CreateFrame("Frame", "KidsHealOptionsChild", scroll)
-  child:SetSize(1, 1010)
+  child:SetSize(1, 1050)
   scroll:SetScrollChild(child)
 
   local note = child:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
@@ -1173,29 +1209,30 @@ panel = select(2, pcall(function()
   MakeSlider("barHeight", "barHeight", 24, 80, 2, -180)
   MakeSlider("iconSize", "iconSize", 20, 80, 2, -230)
   MakeCheckbox("iconsRight", "iconsRight", -290)
-  MakeCheckbox("showHealthText", "showHealthText", -330)
-  MakeSlider("nameFontSize", "nameFontSize", 8, 24, 1, -380)
-  MakeSlider("hpFontSize", "hpFontSize", 8, 24, 1, -430)
-  MakeSlider("buffSize", "buffSize", 12, 32, 2, -480)
-  slotCountSlider = MakeSlider("slotCountLabel", "slotCount", 1, 10, 1, -530)
-  MakeSlider("blockSpacing", "blockSpacing", 0, 30, 1, -580)
-  MakeSlider("buffPadding", "buffPadding", -10, 20, 1, -630)
-  MakeSlider("barPadding", "barPadding", 0, 16, 1, -680)
-  MakeCheckbox("showAllBuffs", "showAllBuffs", -750)
-  MakeCheckbox("onlyMyBuffs", "onlyMyBuffs", -790)
-  MakeCheckbox("showFocus", "showFocus", -830)
+  MakeCheckbox("showPortraits", "showPortraits", -330)
+  MakeCheckbox("showHealthText", "showHealthText", -370)
+  MakeSlider("nameFontSize", "nameFontSize", 8, 24, 1, -420)
+  MakeSlider("hpFontSize", "hpFontSize", 8, 24, 1, -470)
+  MakeSlider("buffSize", "buffSize", 12, 32, 2, -520)
+  slotCountSlider = MakeSlider("slotCountLabel", "slotCount", 1, 10, 1, -570)
+  MakeSlider("blockSpacing", "blockSpacing", 0, 30, 1, -620)
+  MakeSlider("buffPadding", "buffPadding", -10, 20, 1, -670)
+  MakeSlider("barPadding", "barPadding", 0, 16, 1, -720)
+  MakeCheckbox("showAllBuffs", "showAllBuffs", -790)
+  MakeCheckbox("onlyMyBuffs", "onlyMyBuffs", -830)
+  MakeCheckbox("showFocus", "showFocus", -870)
 
   -- slot + spell dropdown --------------------------------------------
   local ddLabel = child:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-  ddLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -910)
+  ddLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -950)
   ddLabel:SetText(L("ddLabel"))
 
   local slotLabel = child:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  slotLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 40, -945)
+  slotLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 40, -985)
   slotLabel:SetText(L("slotLabel"))
 
   local slotDD = CreateFrame("Frame", "KidsHealSlotDD", child, "UIDropDownMenuTemplate")
-  slotDD:SetPoint("TOPLEFT", child, "TOPLEFT", 90, -940)
+  slotDD:SetPoint("TOPLEFT", child, "TOPLEFT", 90, -980)
   UIDropDownMenu_SetWidth(slotDD, 80)
   local curSlot = 1
   local function SlotDDText()
@@ -1217,11 +1254,11 @@ panel = select(2, pcall(function()
   SlotDDText()
 
   local spellLabel = child:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  spellLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 220, -945)
+  spellLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 220, -985)
   spellLabel:SetText(L("spellLabel"))
 
   local spellDD = CreateFrame("Frame", "KidsHealSpellDD", child, "UIDropDownMenuTemplate")
-  spellDD:SetPoint("TOPLEFT", child, "TOPLEFT", 290, -940)
+  spellDD:SetPoint("TOPLEFT", child, "TOPLEFT", 290, -980)
   UIDropDownMenu_SetWidth(spellDD, 180)
   UIDropDownMenu_Initialize(spellDD, function(self, level)
     if level == 1 then
@@ -1336,6 +1373,9 @@ container:SetScript("OnEvent", function(_, event, unit, a1, a2, a3, a4)
       or event == "UNIT_NAME_UPDATE" then
     local m = memberFrames[unit]
     if m then UpdateHealth(m) end
+  elseif event == "UNIT_PORTRAIT_UPDATE" then
+    local m = memberFrames[unit]
+    if m and m.portrait then SetPortraitTexture(m.portrait.portrait, unit) end
   elseif event == "UNIT_AURA" then
     local m = memberFrames[unit]
     if m then UpdateBuffs(m) end
@@ -1348,6 +1388,7 @@ container:RegisterEvent("PLAYER_ENTERING_WORLD")
 container:RegisterEvent("GROUP_ROSTER_UPDATE")
 container:RegisterEvent("PLAYER_REGEN_ENABLED")
 container:RegisterEvent("UNIT_HEALTH")
+container:RegisterEvent("UNIT_PORTRAIT_UPDATE")
 container:RegisterEvent("UNIT_MAXHEALTH")
 container:RegisterEvent("UNIT_NAME_UPDATE")
 container:RegisterEvent("UNIT_AURA")
