@@ -25,7 +25,7 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local ADDON_VERSION = "1.4.3"
+local ADDON_VERSION = "1.4.4"
 
 local DEFAULTS = {
   barWidth = 120,
@@ -1285,8 +1285,8 @@ panel = select(2, pcall(function()
       ref.text:SetText(L(ref.labelKey))
     end
     ddLabel:SetText(L("ddLabel"))
-    slotLabel.SetText(L("slotLabel"))
-    spellLabel.SetText(L("spellLabel"))
+    slotLabel:SetText(L("slotLabel"))
+    spellLabel:SetText(L("spellLabel"))
     SlotDDText()
   end
   refreshOptionsText = RefreshOptionsText
