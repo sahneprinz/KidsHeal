@@ -25,7 +25,7 @@
   The old TOOLTIP-strata catcher frame was removed - it swallowed drops.
 ]]
 
-local ADDON_VERSION = "1.5.3"
+local ADDON_VERSION = "1.6.0"
 
 local DEFAULTS = {
   barWidth = 120,
@@ -46,6 +46,7 @@ local DEFAULTS = {
   onlyMyBuffs = false,
   showFocus = true,
   showPortraits = false,
+  showDispellable = true,
   maxBuffs = 10,
 }
 
@@ -86,6 +87,7 @@ local LOCALES = {
     iconSize = "Icon size",
     iconsRight = "Icons to the right of the bars",
     showPortraits = "Show character faces next to the bars",
+    showDispellable = "Show debuffs I can remove",
     showHealthText = "Show health points as text",
     nameFontSize = "Name size",
     hpFontSize = "Number size (HP)",
@@ -141,6 +143,7 @@ local LOCALES = {
     iconSize = "Icongröße",
     iconsRight = "Icons rechts neben den Balken",
     showPortraits = "Charaktergesichter neben den Balken zeigen",
+    showDispellable = "Debuffs zeigen, die ich entfernen kann",
     showHealthText = "Lebenspunkte als Text anzeigen",
     nameFontSize = "Namensgröße",
     hpFontSize = "Zahlengröße (HP)",
@@ -196,6 +199,7 @@ local LOCALES = {
     iconSize = "Tamaño de los iconos",
     iconsRight = "Iconos a la derecha de las barras",
     showPortraits = "Mostrar rostros de los personajes junto a las barras",
+    showDispellable = "Mostrar debuffs que puedo quitar",
     showHealthText = "Mostrar vida como texto",
     nameFontSize = "Tamaño del nombre",
     hpFontSize = "Tamaño de números (vida)",
@@ -608,6 +612,52 @@ local function Relayout()
 end
 
 -- ------------------------------------------------------------------ buffs
+-- ------------------------------------------------------------------ debuffs
+-- which debuff types can the CURRENT character dispel? built from the
+-- class's cleanse spells actually known to the player. A mistweaver's
+-- Detox removes poison and disease but not magic or curse - exactly the
+-- "can I help with this?" answer a young healer needs at a glance.
+-- cleanse spell IDs (language-independent) with the debuff types they remove
+local CLEANSE_SPELLS = {
+  PRIEST = {
+    { id = 527,    types = { Magic = true, Disease = true } },   -- Purify
+    { id = 213634, types = { Disease = true } },                  -- Purify Disease
+  },
+  PALADIN = {
+    { id = 4987,   types = { Poison = true, Disease = true } },   -- Cleanse
+    { id = 213644, types = { Poison = true, Disease = true } },  -- Cleanse Toxins
+    { id = 213641, types = { Disease = true } },                  -- Cleanse Disease
+  },
+  MONK = {
+    { id = 115450, types = { Poison = true, Disease = true } },   -- Detox
+    { id = 218164, types = { Magic = true, Poison = true, Disease = true } }, -- Detox (Mistweaver)
+  },
+  DRUID = {
+    { id = 88423,  types = { Magic = true, Curse = true, Poison = true } }, -- Nature's Cure
+    { id = 2782,   types = { Curse = true, Poison = true } },    -- Remove Corruption
+  },
+  SHAMAN = {
+    { id = 51886,  types = { Curse = true } },                     -- Purify/Cleanse Spirit
+    { id = 77130,  types = { Magic = true } },                     -- Purify Spirit (restoration)
+  },
+  MAGE = {
+    { id = 475,    types = { Curse = true } },                    -- Remove Curse
+  },
+}
+
+local myDispelTypes = nil
+local function RefreshDispelTypes()
+  myDispelTypes = {}
+  local _, class = UnitClass("player")
+  local list = CLEANSE_SPELLS[class]
+  if not list then return end
+  for _, entry in ipairs(list) do
+    if IsSpellKnown(entry.id) or IsPlayerSpell(entry.id) then
+      for t in pairs(entry.types) do myDispelTypes[t] = true end
+    end
+  end
+end
+
 -- show the player's own Heal-over-Time / shield effects (and optionally
 -- all buffs) with remaining time under each health bar.
 local IMPORTANT_BUFFS = {
@@ -642,6 +692,14 @@ local IMPORTANT_BUFFS = {
   ["Grace"] = true, ["Gnade"] = true,
 }
 
+-- ring colors per debuff type (matching the default UI's debuff coloring)
+local DEBUFF_COLOR = {
+  Magic   = { 0.20, 0.60, 1.00 },
+  Curse   = { 0.60, 0.20, 1.00 },
+  Disease = { 0.60, 0.40, 0.00 },
+  Poison  = { 0.20, 0.80, 0.20 },
+}
+
 UpdateBuffs = function(member)
   if not member.buffFrames then return end
   local unit = member.unit
@@ -670,6 +728,40 @@ UpdateBuffs = function(member)
         f.buffName = name
         f.buffIndex = i
         f.icon:SetTexture(icon)
+        f.border:Hide()
+        local remain = expires and (expires - GetTime()) or nil
+        if remain and remain > 0 then
+          if remain < 10 then
+            f.time:SetText(("%.1f"):format(remain))
+          else
+            f.time:SetText(("%d"):format(remain))
+          end
+        else
+          f.time:SetText("")
+        end
+        f:Show()
+        idx = idx + 1
+        if idx > s.maxBuffs then break end
+      end
+    end
+  end
+  -- dispellable debuffs: shown with a colored ring, only for types the
+  -- CURRENT character can actually remove (a mistweaver sees poison and
+  -- disease, but not curses they cannot dispel)
+  if s.showDispellable and myDispelTypes then
+    for i = 1, 40 do
+      local name, _, icon, _, dtype, duration, expires, _, _, _, spellId = UnitDebuff(unit, i)
+      if not name then break end
+      if dtype and myDispelTypes[dtype] then
+        local f = member.buffFrames[idx]
+        if not f then break end
+        f.buffName = name
+        f.buffIndex = i
+        f.icon:SetTexture(icon)
+        f.border:SetVertexColor(DEBUFF_COLOR[dtype] and DEBUFF_COLOR[dtype][1],
+          DEBUFF_COLOR[dtype] and DEBUFF_COLOR[dtype][2],
+          DEBUFF_COLOR[dtype] and DEBUFF_COLOR[dtype][3])
+        f.border:Show()
         local remain = expires and (expires - GetTime()) or nil
         if remain and remain > 0 then
           if remain < 10 then
@@ -688,6 +780,7 @@ UpdateBuffs = function(member)
   end
   for i = idx, s.maxBuffs do
     if member.buffFrames[i] then member.buffFrames[i]:Hide() end
+    if member.buffFrames[i] then member.buffFrames[i].border:Hide() end
   end
 end
 
@@ -908,7 +1001,15 @@ local function CreateMember(unitId, index)
     bf.bg = bf:CreateTexture(nil, "BACKGROUND")
     bf.bg:SetAllPoints()
     bf.bg:SetColorTexture(0, 0, 0, 0.5)
+    bf.border = bf:CreateTexture(nil, "OVERLAY")
+    bf.border:SetTexture("Interface\\Buttons\\WHITE8X8")
+    bf.border:SetAllPoints()
+    bf.border:SetVertexColor(0.2, 0.6, 1.0)
+    bf.border:Hide()
     bf.icon = bf:CreateTexture(nil, "ARTWORK")
+    bf.icon:ClearAllPoints()
+    bf.icon:SetPoint("TOPLEFT", bf, "TOPLEFT", 2, -2)
+    bf.icon:SetPoint("BOTTOMRIGHT", bf, "BOTTOMRIGHT", -2, -2)
     bf.icon:SetAllPoints()
     bf.icon:SetTexCoord(0.08, 0.92, 0.08, 0.92)
     bf.time = bf:CreateFontString(nil, "OVERLAY", "GameFontHighlight")
@@ -1118,7 +1219,7 @@ panel = select(2, pcall(function()
   scroll:SetPoint("TOPLEFT", panel, "TOPLEFT", 16, -48)
   scroll:SetPoint("BOTTOMRIGHT", panel, "BOTTOMRIGHT", -32, 16)
   local child = CreateFrame("Frame", "KidsHealOptionsChild", scroll)
-  child:SetSize(1, 1050)
+  child:SetSize(1, 1080)
   scroll:SetScrollChild(child)
 
   local note = child:CreateFontString(nil, "ARTWORK", "GameFontHighlightSmall")
@@ -1227,29 +1328,30 @@ panel = select(2, pcall(function()
   MakeSlider("iconSize", "iconSize", 20, 80, 2, -230)
   MakeCheckbox("iconsRight", "iconsRight", -290)
   MakeCheckbox("showPortraits", "showPortraits", -330)
-  MakeCheckbox("showHealthText", "showHealthText", -370)
-  MakeSlider("nameFontSize", "nameFontSize", 8, 24, 1, -420)
-  MakeSlider("hpFontSize", "hpFontSize", 8, 24, 1, -470)
-  MakeSlider("buffSize", "buffSize", 12, 32, 2, -520)
-  slotCountSlider = MakeSlider("slotCountLabel", "slotCount", 1, 10, 1, -570)
-  MakeSlider("blockSpacing", "blockSpacing", 0, 30, 1, -620)
-  MakeSlider("buffPadding", "buffPadding", -10, 20, 1, -670)
-  MakeSlider("barPadding", "barPadding", 0, 16, 1, -720)
-  MakeCheckbox("showAllBuffs", "showAllBuffs", -790)
-  MakeCheckbox("onlyMyBuffs", "onlyMyBuffs", -830)
-  MakeCheckbox("showFocus", "showFocus", -870)
+  MakeCheckbox("showDispellable", "showDispellable", -370)
+  MakeCheckbox("showHealthText", "showHealthText", -410)
+  MakeSlider("nameFontSize", "nameFontSize", 8, 24, 1, -450)
+  MakeSlider("hpFontSize", "hpFontSize", 8, 24, 1, -500)
+  MakeSlider("buffSize", "buffSize", 12, 32, 2, -550)
+  slotCountSlider = MakeSlider("slotCountLabel", "slotCount", 1, 10, 1, -600)
+  MakeSlider("blockSpacing", "blockSpacing", 0, 30, 1, -650)
+  MakeSlider("buffPadding", "buffPadding", -10, 20, 1, -700)
+  MakeSlider("barPadding", "barPadding", 0, 16, 1, -750)
+  MakeCheckbox("showAllBuffs", "showAllBuffs", -820)
+  MakeCheckbox("onlyMyBuffs", "onlyMyBuffs", -860)
+  MakeCheckbox("showFocus", "showFocus", -900)
 
   -- slot + spell dropdown --------------------------------------------
   local ddLabel = child:CreateFontString(nil, "ARTWORK", "GameFontNormalLarge")
-  ddLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -950)
+  ddLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 0, -980)
   ddLabel:SetText(L("ddLabel"))
 
   local slotLabel = child:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  slotLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 40, -985)
+  slotLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 40, -1015)
   slotLabel:SetText(L("slotLabel"))
 
   local slotDD = CreateFrame("Frame", "KidsHealSlotDD", child, "UIDropDownMenuTemplate")
-  slotDD:SetPoint("TOPLEFT", child, "TOPLEFT", 90, -980)
+  slotDD:SetPoint("TOPLEFT", child, "TOPLEFT", 90, -1010)
   UIDropDownMenu_SetWidth(slotDD, 80)
   local curSlot = 1
   local function SlotDDText()
@@ -1271,11 +1373,11 @@ panel = select(2, pcall(function()
   SlotDDText()
 
   local spellLabel = child:CreateFontString(nil, "ARTWORK", "GameFontNormal")
-  spellLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 220, -985)
+  spellLabel:SetPoint("TOPLEFT", child, "TOPLEFT", 220, -1015)
   spellLabel:SetText(L("spellLabel"))
 
   local spellDD = CreateFrame("Frame", "KidsHealSpellDD", child, "UIDropDownMenuTemplate")
-  spellDD:SetPoint("TOPLEFT", child, "TOPLEFT", 290, -980)
+  spellDD:SetPoint("TOPLEFT", child, "TOPLEFT", 290, -1010)
   UIDropDownMenu_SetWidth(spellDD, 180)
   UIDropDownMenu_Initialize(spellDD, function(self, level)
     if level == 1 then
@@ -1357,6 +1459,7 @@ end
 container:SetScript("OnEvent", function(_, event, unit, a1, a2, a3, a4)
   if event == "PLAYER_SPECIALIZATION_CHANGED" then
     -- spell slots, icon count AND enabled state are saved per spec
+    RefreshDispelTypes()
     RequestRebuild()
     ApplySpecEnabled()
     if type(slotCountSlider) == "table" then
@@ -1369,6 +1472,7 @@ container:SetScript("OnEvent", function(_, event, unit, a1, a2, a3, a4)
     if event == "PLAYER_ENTERING_WORLD" then
       ApplyPosition()
       ApplySpecEnabled()
+      RefreshDispelTypes()
       -- SavedVariables are loaded by now: the options panel was built
       -- before they existed, so re-sync all its texts AND control values
       if refreshOptionsText then refreshOptionsText() end

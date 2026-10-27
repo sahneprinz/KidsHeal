@@ -1,4 +1,4 @@
-# KidsHeal v1.5.3
+# KidsHeal v1.6.0
 
 **KidsHeal is a World of Warcraft: Legion addon that aims to make healing a party easy — at the cost of efficiency.**
 
@@ -13,6 +13,7 @@ KidsHeal follows the old washing machine salesman's approach: *"Even a child can
 - **Click an empty slot, then cast a spell → it lands in that slot** on every member's bar. You can also use the spellbook dropdown in the options or `/kidsheal set`.
 - **Left-click an icon → that spell is cast on that player.** No targeting, no keys.
 - Active HoTs and shields appear as icons with countdowns right on the health bars.
+- **Dispellable debuffs** are shown with a colored ring - but only the types your character can actually remove (a Mistweaver sees poison/disease, a Mage sees curses).
 - Cooldown sweeps show on every box at the same time; icons turn grey when unusable, dim when out of range.
 - Spells and icon count are saved **per character and per talent specialization** (healer setup and DPS setup switch automatically).
 
