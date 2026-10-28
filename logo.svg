@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <!-- KidsHeal logo: green health badge, white cross, red heart -->
+  <rect x="32" y="32" width="448" height="448" rx="96" fill="#2e9e4f"/>
+  <rect x="196" y="108" width="120" height="296" rx="36" fill="#ffffff"/>
+  <rect x="108" y="196" width="296" height="120" rx="36" fill="#ffffff"/>
+  <path d="M256 416
+           C 196 372, 148 336, 148 292
+           C 148 262, 171 244, 196 244
+           C 214 244, 236 254, 256 278
+           C 276 254, 298 244, 316 244
+           C 341 244, 364 262, 364 292
+           C 364 336, 316 372, 256 416 Z"
+        fill="#e6413c"/>
+</svg>
